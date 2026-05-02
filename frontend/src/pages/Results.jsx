@@ -1,9 +1,9 @@
-﻿import {
-    ArrowDownTrayIcon,
-    ArrowLeftIcon,
-    CheckCircleIcon,
-    MapPinIcon,
-    TrophyIcon,
+import {
+  ArrowDownTrayIcon,
+  ArrowLeftIcon,
+  CheckCircleIcon,
+  MapPinIcon,
+  TrophyIcon,
 } from '@heroicons/react/24/outline'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -11,7 +11,6 @@ import { KUThBars, LayerRadar, PSIBars } from '../components/Charts/GeoCharts'
 import { useAuth } from '../context/AuthContext'
 import GeoMap from '../components/Map/GeoMap'
 
-// â”€â”€ Demo data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DEMO = {
   commodity: 'OURO',
   jobId: 'demo-synthetic',
@@ -24,24 +23,24 @@ const DEMO = {
     { id: 'Z3', lon: -41.20, lat: -4.52, psiScore: 0.612, priority: 3, cluster: 'C', area_km2: 18.7 },
   ],
   layers: [
-    { name: 'K (PotÃ¡ssio)', anomaly: 0.78 }, { name: 'U (UrÃ¢nio)', anomaly: 0.65 },
-    { name: 'Th (TÃ³rio)', anomaly: 0.42 }, { name: 'MAG', anomaly: 0.83 }, { name: 'GRAV', anomaly: 0.59 },
+    { name: 'K (Potassio)', anomaly: 0.78 }, { name: 'U (Uranio)', anomaly: 0.65 },
+    { name: 'Th (Torio)', anomaly: 0.42 }, { name: 'MAG', anomaly: 0.83 }, { name: 'GRAV', anomaly: 0.59 },
   ],
   ternary: [
     { name: 'Z1', K: 65, U: 20, Th: 15 }, { name: 'Z2', K: 45, U: 35, Th: 20 },
     { name: 'Z3', K: 30, U: 40, Th: 30 }, { name: 'BG', K: 25, U: 25, Th: 50 },
   ],
   topZones: 12,
-  dataType: 'SintÃ©tico',
+  dataType: 'Sintetico (deterministico)',
   zones: [
-    { Target: 'Z1', Zone: 1, PriorityScore: 0.91, PeakScore: 0.95, MeanScore: 0.87, Area_km2: 42.3, CentroidLon: -40.57, CentroidLat: -4.65, DistanceToTarget_km: 0.5, Threshold: 0.85, Classe: 'Alta' },
-    { Target: 'Z2', Zone: 1, PriorityScore: 0.73, PeakScore: 0.78, MeanScore: 0.68, Area_km2: 31.1, CentroidLon: -41.58, CentroidLat: -4.30, DistanceToTarget_km: 1.2, Threshold: 0.68, Classe: 'MÃ©dia' },
-    { Target: 'Z3', Zone: 1, PriorityScore: 0.58, PeakScore: 0.65, MeanScore: 0.52, Area_km2: 18.7, CentroidLon: -41.20, CentroidLat: -4.52, DistanceToTarget_km: 2.1, Threshold: 0.55, Classe: 'Baixa' },
+    { Target: 'Z1', Zone: 1, PriorityScore: 0.91, PeakScore: 0.95, MeanScore: 0.87, Area_km2: 42.3, CentroidLon: -40.57, CentroidLat: -4.65, DistanceToTarget_km: 0.5, Classe: 'Alta' },
+    { Target: 'Z2', Zone: 1, PriorityScore: 0.73, PeakScore: 0.78, MeanScore: 0.68, Area_km2: 31.1, CentroidLon: -41.58, CentroidLat: -4.30, DistanceToTarget_km: 1.2, Classe: 'Media' },
+    { Target: 'Z3', Zone: 1, PriorityScore: 0.58, PeakScore: 0.65, MeanScore: 0.52, Area_km2: 18.7, CentroidLon: -41.20, CentroidLat: -4.52, DistanceToTarget_km: 2.1, Classe: 'Baixa' },
   ],
   subtargets: [
-    { Target: 'Z1', Rank: 1, Score: 0.95, Lon: -40.56, Lat: -4.64, DistanceToTarget_km: 1.1, Justificativa: 'MÃ¡ximo local de alta favorabilidade â€” candidato primÃ¡rio' },
-    { Target: 'Z1', Rank: 2, Score: 0.87, Lon: -40.59, Lat: -4.67, DistanceToTarget_km: 2.4, Justificativa: 'MÃ¡ximo local moderado â€” candidato secundÃ¡rio' },
-    { Target: 'Z2', Rank: 1, Score: 0.78, Lon: -41.56, Lat: -4.29, DistanceToTarget_km: 1.8, Justificativa: 'MÃ¡ximo local moderado â€” candidato secundÃ¡rio' },
+    { Target: 'Z1', Rank: 1, Score: 0.95, Lon: -40.56, Lat: -4.64, DistanceToTarget_km: 1.1, Justificativa: 'Maximo local de alta favorabilidade - candidato primario' },
+    { Target: 'Z1', Rank: 2, Score: 0.87, Lon: -40.59, Lat: -4.67, DistanceToTarget_km: 2.4, Justificativa: 'Maximo local moderado - candidato secundario' },
+    { Target: 'Z2', Rank: 1, Score: 0.78, Lon: -41.56, Lat: -4.29, DistanceToTarget_km: 1.8, Justificativa: 'Maximo local moderado - candidato secundario' },
   ],
   targetStats: [
     { Target: 'Z1', Radius_km: 10, LocalMean: 0.81, P90: 0.92, Max: 0.95, Min: 0.42, Std: 0.14, Consistency: 0.83, DominanceRisk: 0.38 },
@@ -49,10 +48,9 @@ const DEMO = {
   ],
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function classBadge(cls) {
   if (cls === 'Alta') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-  if (cls === 'MÃ©dia') return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+  if (cls === 'Media') return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
   return 'bg-slate-700 text-slate-400 border-slate-600'
 }
 
@@ -71,7 +69,7 @@ function ScoreBar({ value }) {
   )
 }
 
-const TABS = ['VisÃ£o Geral', 'Mapa 2D', 'Mapa 3D', 'Zonas', 'Subalvos', 'AnÃ¡lise Radial']
+const TABS = ['Visao Geral', 'Mapa 2D', 'Mapa 3D', 'Zonas', 'Subalvos', 'Analise Radial']
 
 export default function Results() {
   const [params] = useSearchParams()
@@ -98,7 +96,7 @@ export default function Results() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      alert('PDF nÃ£o disponÃ­vel. Execute uma anÃ¡lise real para gerar o relatÃ³rio.')
+      alert('PDF nao disponivel. Execute uma analise real para gerar o relatorio.')
     } finally {
       setExporting(false)
     }
@@ -107,13 +105,13 @@ export default function Results() {
   useEffect(() => {
     const jobId = params.get('job_id')
     const isDemo = params.get('demo') === 'true' || !jobId
-    if (isDemo) { setTimeout(() => { setData(DEMO); setLoading(false) }, 600); return }
+    if (isDemo) { setTimeout(() => { setData(DEMO); setLoading(false) }, 400); return }
     fetch(`/api/analysis/${jobId}/results`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
       .then(d => { setData(d); setLoading(false) })
-      .catch(() => { setData(DEMO); setLoading(false) })
+      .catch(() => { setData({ ...DEMO, jobId, _expired: true }); setLoading(false) })
   }, [params, token])
 
   if (loading) {
@@ -121,62 +119,79 @@ export default function Results() {
       <div className="flex items-center justify-center h-[calc(100vh-64px)]">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-2 border-slate-700 border-t-amber-400 rounded-full animate-spin mx-auto" />
-          <p className="text-slate-400 text-sm">Carregando resultadosâ€¦</p>
+          <p className="text-slate-400 text-sm">Carregando resultados...</p>
         </div>
       </div>
     )
   }
 
-  const topTarget = data.targets?.[0] ?? { id: 'â€”', psiScore: 0, priority: 0, cluster: 'â€”', area_km2: 0, lon: 0, lat: 0 }
+  const topTarget = data.targets?.[0] ?? { id: '-', psiScore: 0, priority: 0, cluster: '-', area_km2: 0, lon: 0, lat: 0 }
   const jobId = data.jobId
   const isDemo = jobId === 'demo-synthetic'
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-5 space-y-4">
 
+      {data._expired && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-amber-400 text-xl leading-none mt-0.5">&#9888;</span>
+          <div>
+            <p className="text-amber-300 text-sm font-medium">Job nao encontrado no servidor</p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              O job <span className="font-mono">{jobId}</span> foi perdido pelo reinicio do servidor.
+              Os dados abaixo sao demonstrativos.{' '}
+              <Link to="/analysis" className="text-amber-400 hover:underline">Execute uma nova analise.</Link>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <Link to="/analysis" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">
-            <ArrowLeftIcon className="w-4 h-4" /> Nova AnÃ¡lise
+            <ArrowLeftIcon className="w-4 h-4" /> Nova Analise
           </Link>
           <span className="text-slate-700">|</span>
           <h1 className="text-lg font-bold text-white">
-            Resultados â€” <span className="text-amber-400">{data.commodity}</span>
+            Resultados &mdash; <span className="text-amber-400">{data.commodity}</span>
           </h1>
-          {isDemo && (
+          {(isDemo || data._expired) && (
             <span className="text-xs bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">
-              Dados SintÃ©ticos
+              {data._expired ? 'Job Expirado' : 'Demo'}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {!isDemo && ['zonas', 'subalvos', 'alvos'].map(ds => (
+          {!isDemo && !data._expired && ['zonas', 'subalvos', 'alvos'].map(ds => (
             <button key={ds} onClick={async () => {
               const res = await fetch(`/api/analysis/${jobId}/csv/${ds}`, { headers: { Authorization: `Bearer ${token}` } })
               if (!res.ok) return
               const blob = await res.blob()
               const url = URL.createObjectURL(blob)
-              const a = document.createElement('a'); a.href = url
-              a.download = `${ds}_${data.commodity}_${data.createdAt?.slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `${ds}_${data.commodity}_${data.createdAt?.slice(0, 10)}.csv`
+              a.click()
+              URL.revokeObjectURL(url)
             }} className="flex items-center gap-1 text-xs border border-slate-700 hover:border-slate-500 text-slate-500 hover:text-slate-300 px-2 py-1.5 rounded-md transition-colors">
               <ArrowDownTrayIcon className="w-3.5 h-3.5" />{ds}.csv
             </button>
           ))}
-          <button onClick={handleExportPDF} disabled={exporting}
-            className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-50 text-slate-400 px-3 py-1.5 rounded-md transition-colors">
+          <button onClick={handleExportPDF} disabled={exporting || isDemo || !!data._expired}
+            className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-40 text-slate-400 px-3 py-1.5 rounded-md transition-colors">
             <ArrowDownTrayIcon className="w-4 h-4" />
             {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Melhor PSI Score" value={topTarget.psiScore > 0 ? `${(topTarget.psiScore * 100).toFixed(1)}%` : 'â€”'} sub={`Alvo ${topTarget.id}`} icon={TrophyIcon} accent="amber" />
-        <KpiCard label="Zonas PrioritÃ¡rias" value={data.zones?.length ?? data.topZones ?? 0} sub="detectadas no grid" icon={MapPinIcon} accent="blue" />
-        <KpiCard label="Subalvos" value={data.subtargets?.length ?? 0} sub="mÃ¡ximos locais detectados" icon={CheckCircleIcon} accent="emerald" />
-        <KpiCard label="Fonte de Dados" value={data.dataType?.split(' ')[0] ?? 'â€”'} sub={data.dataType} icon={null} accent="slate" />
+        <KpiCard label="Melhor PSI Score" value={topTarget.psiScore > 0 ? `${(topTarget.psiScore * 100).toFixed(1)}%` : '-'} sub={`Alvo ${topTarget.id}`} icon={TrophyIcon} accent="amber" />
+        <KpiCard label="Zonas Prioritarias" value={data.zones?.length ?? data.topZones ?? 0} sub="detectadas no grid" icon={MapPinIcon} accent="blue" />
+        <KpiCard label="Subalvos" value={data.subtargets?.length ?? 0} sub="maximos locais" icon={CheckCircleIcon} accent="emerald" />
+        <KpiCard label="Fonte de Dados" value={data.dataType?.split(' ')[0] ?? '-'} sub={data.dataType} icon={null} accent="slate" />
       </div>
 
       {/* Tabs */}
@@ -185,9 +200,7 @@ export default function Results() {
           {TABS.map((tab, i) => (
             <button key={i} onClick={() => setActiveTab(i)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === i
-                  ? 'border-amber-500 text-amber-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                activeTab === i ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}>
               {tab}
             </button>
@@ -195,10 +208,9 @@ export default function Results() {
         </div>
       </div>
 
-      {/* â”€â”€ Tab 0: VisÃ£o Geral â”€â”€ */}
+      {/* Tab 0 - Visao Geral */}
       {activeTab === 0 && (
         <div className="space-y-5">
-          {/* Mapa leaflet */}
           {data.bbox && data.targets && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
@@ -211,17 +223,16 @@ export default function Results() {
             </div>
           )}
 
-          {/* Ranking alvos */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-white mb-4">Alvos â€” Ranking PSI</h2>
-              {data.targets.length === 0 ? (
-                <p className="text-slate-500 text-sm">Nenhum alvo disponÃ­vel.</p>
+              <h2 className="text-sm font-semibold text-white mb-4">Alvos &mdash; Ranking PSI</h2>
+              {!data.targets?.length ? (
+                <p className="text-slate-500 text-sm">Nenhum alvo disponivel.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-700">
-                      {['#', 'ID', 'PSI Score', 'Cluster', 'Ãrea (kmÂ²)', 'Prioridade'].map(h => (
+                      {['#', 'ID', 'PSI Score', 'Cluster', 'Area (km2)', 'Prioridade'].map(h => (
                         <th key={h} className="text-left text-xs font-medium text-slate-500 pb-2 pr-3">{h}</th>
                       ))}
                     </tr>
@@ -232,16 +243,16 @@ export default function Results() {
                         <td className="py-2.5 pr-3 text-slate-500 font-mono text-xs">{i + 1}</td>
                         <td className="py-2.5 pr-3">
                           <span className="font-bold text-amber-400">{t.id}</span>
-                          <div className="text-xs text-slate-500 font-mono">{t.lon?.toFixed(3)}Â° {t.lat?.toFixed(3)}Â°</div>
+                          <div className="text-xs text-slate-500 font-mono">{t.lon?.toFixed(3)}&deg; {t.lat?.toFixed(3)}&deg;</div>
                         </td>
                         <td className="py-2.5 pr-3 w-36"><ScoreBar value={t.psiScore ?? 0} /></td>
                         <td className="py-2.5 pr-3">
-                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30">{t.cluster ?? 'â€”'}</span>
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/30">{t.cluster ?? '-'}</span>
                         </td>
                         <td className="py-2.5 pr-3 text-slate-300 font-mono text-xs">{(t.area_km2 ?? 0).toFixed(1)}</td>
                         <td className="py-2.5">
                           <span className={`text-xs px-2 py-0.5 rounded ${i === 0 ? 'bg-amber-500/15 text-amber-400' : 'bg-slate-700/60 text-slate-400'}`}>
-                            {i === 0 ? 'Alta' : i === 1 ? 'MÃ©dia' : 'Baixa'}
+                            {i === 0 ? 'Alta' : i === 1 ? 'Media' : 'Baixa'}
                           </span>
                         </td>
                       </tr>
@@ -253,56 +264,58 @@ export default function Results() {
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4">PSI Index por Alvo</h2>
               <PSIBars targets={data.targets} />
-              <p className="text-xs text-slate-600 mt-3 text-center">0 = desfavorÃ¡vel Â· 1 = mÃ¡xima favorabilidade</p>
+              <p className="text-xs text-slate-600 mt-3 text-center">0 = desfavoravel &middot; 1 = maxima favorabilidade</p>
             </div>
           </div>
 
-          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-white mb-1">Anomalias por Camada GeofÃ­sica</h2>
-              <p className="text-xs text-slate-500 mb-4">Intensidade normalizada â€” Ã¡rea {topTarget.id}</p>
+              <h2 className="text-sm font-semibold text-white mb-1">Anomalias por Camada Geofisica</h2>
+              <p className="text-xs text-slate-500 mb-4">Intensidade normalizada &mdash; area {topTarget.id}</p>
               <LayerRadar layers={data.layers} />
             </div>
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-white mb-1">ComposiÃ§Ã£o RadiomÃ©trica K-U-Th</h2>
-              <p className="text-xs text-slate-500 mb-4">ProporÃ§Ãµes relativas â€” indicador de alteraÃ§Ã£o hidrotermal</p>
+              <h2 className="text-sm font-semibold text-white mb-1">Composicao Radiometrica K-U-Th</h2>
+              <p className="text-xs text-slate-500 mb-4">Proporcoes relativas &mdash; indicador de alteracao hidrotermal</p>
               <KUThBars data={data.ternary} />
               <div className="flex gap-4 justify-center mt-2 text-xs">
-                {[['bg-amber-400','K'], ['bg-blue-400','U'], ['bg-emerald-400','Th']].map(([c,l]) => (
-                  <span key={l} className="flex items-center gap-1"><span className={`w-2.5 h-2.5 rounded-sm ${c} inline-block`}/>{l}</span>
+                {[['bg-amber-400', 'K'], ['bg-blue-400', 'U'], ['bg-emerald-400', 'Th']].map(([c, l]) => (
+                  <span key={l} className="flex items-center gap-1">
+                    <span className={`w-2.5 h-2.5 rounded-sm ${c} inline-block`} />{l}
+                  </span>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* InterpretaÃ§Ã£o geolÃ³gica */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-3">InterpretaÃ§Ã£o GeolÃ³gica</h2>
+            <h2 className="text-sm font-semibold text-white mb-3">Interpretacao Geologica</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm text-slate-300 leading-relaxed">
               <div className="space-y-2">
                 {topTarget.psiScore > 0 && (
                   <p>
-                    <span className="text-amber-400 font-semibold">Alvo principal â€” {topTarget.id}:</span>{' '}
+                    <span className="text-amber-400 font-semibold">Alvo principal &mdash; {topTarget.id}:</span>{' '}
                     PSI Score de <span className="text-white font-mono">{(topTarget.psiScore * 100).toFixed(1)}%</span>{' '}
                     indica favorabilidade {topTarget.psiScore > 0.8 ? 'alta' : topTarget.psiScore > 0.6 ? 'moderada' : 'baixa'} para {data.commodity}.
-                    {topTarget.area_km2 > 0 && <> Ãrea <span className="font-mono text-white">{topTarget.area_km2.toFixed(1)} kmÂ²</span> no raio configurado.</>}
+                    {topTarget.area_km2 > 0 && (
+                      <> Area <span className="font-mono text-white">{topTarget.area_km2.toFixed(1)} km&sup2;</span> no raio configurado.</>
+                    )}
                   </p>
                 )}
                 <p className="text-slate-500 text-xs">
-                  {data.zones?.length > 0 ? `${data.zones.length} zonas prioritÃ¡rias detectadas no grid de favorabilidade.` : ''}
-                  {data.subtargets?.length > 0 ? ` ${data.subtargets.length} subalvos identificados como mÃ¡ximos locais.` : ''}
+                  {data.zones?.length > 0 ? `${data.zones.length} zonas prioritarias detectadas.` : ''}
+                  {data.subtargets?.length > 0 ? ` ${data.subtargets.length} subalvos identificados.` : ''}
                 </p>
               </div>
               <div className="space-y-2">
                 <p>
-                  <span className="text-slate-400 font-medium">Assinatura radiomÃ©trica:</span>{' '}
+                  <span className="text-slate-400 font-medium">Assinatura radiometrica:</span>{' '}
                   {(() => {
                     const t = data.ternary?.find(x => x.name === topTarget.id)
-                    if (!t) return 'Perfil radiomÃ©trico nÃ£o disponÃ­vel.'
-                    const dom = t.K >= t.U && t.K >= t.Th ? 'K (PotÃ¡ssio)' : t.U >= t.Th ? 'U (UrÃ¢nio)' : 'Th (TÃ³rio)'
-                    return `DominÃ¢ncia de ${dom} (${Math.max(t.K, t.U, t.Th)}%) â€” tÃ­pico de ${
-                      dom.startsWith('K') ? 'alteraÃ§Ã£o potÃ¡ssica' : dom.startsWith('U') ? 'fluidos hidrotermais' : 'sedimentaÃ§Ã£o de baixo grau'
+                    if (!t) return 'Perfil radiometrico nao disponivel.'
+                    const dom = t.K >= t.U && t.K >= t.Th ? 'K (Potassio)' : t.U >= t.Th ? 'U (Uranio)' : 'Th (Torio)'
+                    return `Dominancia de ${dom} (${Math.max(t.K, t.U, t.Th)}%) - tipico de ${
+                      dom.startsWith('K') ? 'alteracao potassica' : dom.startsWith('U') ? 'fluidos hidrotermais' : 'sedimentacao de baixo grau'
                     }.`
                   })()}
                 </p>
@@ -316,15 +329,14 @@ export default function Results() {
             </div>
           </div>
 
-          {/* PrÃ³ximos passos */}
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">PrÃ³ximos Passos Recomendados</h2>
+            <h2 className="text-sm font-semibold text-white mb-4">Proximos Passos Recomendados</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { n: 1, title: 'ValidaÃ§Ã£o de Campo', desc: `Mapeamento geolÃ³gico nas zonas ${topTarget.id !== 'â€”' ? topTarget.id : ''} e adjacentes.` },
-                { n: 2, title: 'GeoquÃ­mica', desc: 'Amostragem de solo/rocha nos subalvos top-ranked para detecÃ§Ã£o de anomalias.' },
-                { n: 3, title: 'Dados Reais', desc: data.dataType?.includes('SintÃ©tico') ? 'Substitua dados sintÃ©ticos por GeoTIFFs reais no painel de upload.' : `Dados ${data.dataType} aplicados.` },
-                { n: 4, title: 'Sondagem', desc: 'Planejar sondagem com base nas zonas prioritÃ¡rias confirmadas em campo.' },
+                { n: 1, title: 'Validacao de Campo', desc: `Mapeamento geologico nas zonas ${topTarget.id !== '-' ? topTarget.id : ''} e adjacentes.` },
+                { n: 2, title: 'Geoquimica', desc: 'Amostragem de solo/rocha nos subalvos top-ranked para deteccao de anomalias.' },
+                { n: 3, title: 'Dados Reais', desc: data.dataType?.toLowerCase().includes('sint') ? 'Substitua dados sinteticos por GeoTIFFs reais.' : `Dados ${data.dataType} aplicados.` },
+                { n: 4, title: 'Sondagem', desc: 'Planejar sondagem com base nas zonas prioritarias confirmadas em campo.' },
               ].map(({ n, title, desc }) => (
                 <div key={n} className="flex gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-700">
                   <span className="flex-shrink-0 w-6 h-6 bg-amber-500/15 text-amber-400 text-xs font-bold rounded-full border border-amber-500/30 flex items-center justify-center mt-0.5">{n}</span>
@@ -339,88 +351,78 @@ export default function Results() {
 
           <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-xs text-slate-500 flex flex-wrap gap-4 justify-between">
             <span><span className="text-slate-600">Job ID:</span> <span className="font-mono">{jobId}</span></span>
-            <span><span className="text-slate-600">Data:</span> <span className="font-mono">{data.createdAt ? new Date(data.createdAt).toLocaleString('pt-BR') : 'â€”'}</span></span>
-            <span><span className="text-slate-600">Bbox:</span> <span className="font-mono">{data.bbox?.lonMin?.toFixed(2)}Â° / {data.bbox?.latMin?.toFixed(2)}Â° â†’ {data.bbox?.lonMax?.toFixed(2)}Â° / {data.bbox?.latMax?.toFixed(2)}Â°</span></span>
+            <span><span className="text-slate-600">Data:</span> <span className="font-mono">{data.createdAt ? new Date(data.createdAt).toLocaleString('pt-BR') : '-'}</span></span>
+            <span><span className="text-slate-600">Bbox:</span> <span className="font-mono">{data.bbox?.lonMin?.toFixed(2)}&deg; / {data.bbox?.latMin?.toFixed(2)}&deg; &rarr; {data.bbox?.lonMax?.toFixed(2)}&deg; / {data.bbox?.latMax?.toFixed(2)}&deg;</span></span>
           </div>
-          <p className="text-xs text-slate-600 text-center pb-2">âš  PSI Index Ã© indicador relativo â€” nÃ£o Ã© teor, reserva ou laudo geolÃ³gico Â· Use como ferramenta de apoio Ã  decisÃ£o</p>
+          <p className="text-xs text-slate-600 text-center pb-2">
+            PSI Index e indicador relativo &mdash; nao e teor, reserva ou laudo geologico. Use como ferramenta de apoio a decisao.
+          </p>
         </div>
       )}
 
-      {/* â”€â”€ Tab 1: Mapa 2D â”€â”€ */}
+      {/* Tab 1 - Mapa 2D */}
       {activeTab === 1 && (
-        <div className="space-y-4">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-700">
-              <h2 className="text-sm font-semibold text-white">Mapa de Favorabilidade 2D</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Contornos: Top 5% <span className="text-red-400">â– </span> Â· Top 10% <span className="text-orange-400">â– </span> Â· Top 20% <span className="text-yellow-400">â– </span> Â· <span className="text-blue-400">â—†</span> Centroides Â· <span className="text-purple-400">â–²</span> Subalvos Â· <span className="text-amber-400">â˜…</span> Alvos</p>
-            </div>
-            {isDemo ? (
-              <div className="p-12 text-center text-slate-500">
-                <p className="text-sm">Mapa 2D disponÃ­vel apenas para anÃ¡lises reais.</p>
-                <Link to="/analysis" className="mt-3 inline-block text-amber-400 hover:text-amber-300 text-sm underline">Executar anÃ¡lise real â†’</Link>
-              </div>
-            ) : (
-              <div className="relative">
-                {mapError ? (
-                  <div className="p-12 text-center text-slate-500"><p>Mapa PNG nÃ£o disponÃ­vel para este job.</p></div>
-                ) : (
-                  <img
-                    src={`/api/analysis/${jobId}/map/favorability`}
-                    alt="Mapa de favorabilidade"
-                    className="w-full"
-                    onError={() => setMapError(true)}
-                    style={{ background: '#0f172a' }}
-                  />
-                )}
-              </div>
-            )}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-700">
+            <h2 className="text-sm font-semibold text-white">Mapa de Favorabilidade 2D</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Heatmap PSI com contornos top 5% / 10% / 20%</p>
           </div>
+          {isDemo || data._expired ? (
+            <div className="p-12 text-center text-slate-500">
+              <p className="text-sm">Mapa 2D disponivel apenas para analises reais em execucao.</p>
+              <Link to="/analysis" className="mt-3 inline-block text-amber-400 hover:text-amber-300 text-sm underline">
+                Executar nova analise &rarr;
+              </Link>
+            </div>
+          ) : mapError ? (
+            <div className="p-12 text-center text-slate-500"><p>Mapa PNG nao disponivel para este job.</p></div>
+          ) : (
+            <img src={`/api/analysis/${jobId}/map/favorability`} alt="Mapa de favorabilidade"
+              className="w-full" onError={() => setMapError(true)} style={{ background: '#0f172a' }} />
+          )}
         </div>
       )}
 
-      {/* â”€â”€ Tab 2: Mapa 3D â”€â”€ */}
+      {/* Tab 2 - Mapa 3D */}
       {activeTab === 2 && (
-        <div className="space-y-4">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-700">
-              <h2 className="text-sm font-semibold text-white">SuperfÃ­cie 3D de Favorabilidade</h2>
-              <p className="text-xs text-orange-400 mt-0.5">âš  Eixo Z = Score PSI â€” NÃƒO representa profundidade geolÃ³gica</p>
-            </div>
-            {isDemo ? (
-              <div className="p-12 text-center text-slate-500">
-                <p className="text-sm">Mapa 3D disponÃ­vel apenas para anÃ¡lises reais.</p>
-                <Link to="/analysis" className="mt-3 inline-block text-amber-400 hover:text-amber-300 text-sm underline">Executar anÃ¡lise real â†’</Link>
-              </div>
-            ) : (
-              <iframe
-                src={`/api/analysis/${jobId}/map/3d`}
-                title="SuperfÃ­cie 3D de Favorabilidade"
-                style={{ width: '100%', height: '70vh', border: 'none', background: '#0f172a' }}
-                sandbox="allow-scripts allow-same-origin"
-              />
-            )}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-700">
+            <h2 className="text-sm font-semibold text-white">Superficie 3D de Favorabilidade</h2>
+            <p className="text-xs text-orange-400 mt-0.5">&#9888; Eixo Z = Score PSI &mdash; NAO representa profundidade geologica</p>
           </div>
+          {isDemo || data._expired ? (
+            <div className="p-12 text-center text-slate-500">
+              <p className="text-sm">Mapa 3D disponivel apenas para analises reais em execucao.</p>
+              <Link to="/analysis" className="mt-3 inline-block text-amber-400 hover:text-amber-300 text-sm underline">
+                Executar nova analise &rarr;
+              </Link>
+            </div>
+          ) : (
+            <iframe src={`/api/analysis/${jobId}/map/3d`} title="Superficie 3D"
+              style={{ width: '100%', height: '70vh', border: 'none', background: '#0f172a' }}
+              sandbox="allow-scripts allow-same-origin" />
+          )}
         </div>
       )}
 
-      {/* â”€â”€ Tab 3: Zonas PrioritÃ¡rias â”€â”€ */}
+      {/* Tab 3 - Zonas */}
       {activeTab === 3 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-sm font-semibold text-white">Zonas PrioritÃ¡rias Detectadas</h2>
-              <p className="text-xs text-slate-500 mt-0.5">RegiÃµes contÃ­guas de alto score dentro do raio analisado â€” detectadas via rotulagem morfolÃ³gica</p>
+              <h2 className="text-sm font-semibold text-white">Zonas Prioritarias Detectadas</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Regioes contíguas de alto score dentro do raio analisado</p>
             </div>
             <span className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full">{data.zones?.length ?? 0} zonas</span>
           </div>
           {!data.zones?.length ? (
-            <p className="text-slate-500 text-sm">Nenhuma zona detectada. Execute a anÃ¡lise com pelo menos um ponto de interesse.</p>
+            <p className="text-slate-500 text-sm">Nenhuma zona detectada.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-700">
-                    {['Alvo', 'Zona', 'PriorityScore', 'PeakScore', 'MeanScore', 'Ãrea (kmÂ²)', 'CentroidLon', 'CentroidLat', 'Dist. (km)', 'Classe'].map(h => (
+                    {['Alvo', 'Zona', 'PriorityScore', 'PeakScore', 'MeanScore', 'Area (km2)', 'CentroidLon', 'CentroidLat', 'Dist. (km)', 'Classe'].map(h => (
                       <th key={h} className="text-left font-medium text-slate-500 pb-2 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -438,7 +440,7 @@ export default function Results() {
                       <td className="py-2 pr-3 font-mono text-slate-400">{(z.CentroidLat ?? 0).toFixed(5)}</td>
                       <td className="py-2 pr-3 font-mono text-slate-400">{(z.DistanceToTarget_km ?? 0).toFixed(2)}</td>
                       <td className="py-2">
-                        <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${classBadge(z.Classe)}`}>{z.Classe ?? 'â€”'}</span>
+                        <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${classBadge(z.Classe)}`}>{z.Classe ?? '-'}</span>
                       </td>
                     </tr>
                   ))}
@@ -449,18 +451,18 @@ export default function Results() {
         </div>
       )}
 
-      {/* â”€â”€ Tab 4: Subalvos â”€â”€ */}
+      {/* Tab 4 - Subalvos */}
       {activeTab === 4 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-white">Subalvos Recomendados</h2>
-              <p className="text-xs text-slate-500 mt-0.5">MÃ¡ximos locais do PSI dentro do raio de anÃ¡lise â€” GeoPSI v4.0</p>
+              <p className="text-xs text-slate-500 mt-0.5">Maximos locais do PSI dentro do raio de analise &mdash; GeoPSI v4.0</p>
             </div>
             <span className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full">{data.subtargets?.length ?? 0} subalvos</span>
           </div>
           {!data.subtargets?.length ? (
-            <p className="text-slate-500 text-sm">Nenhum subalvo detectado. Execute a anÃ¡lise com pelo menos um ponto de interesse.</p>
+            <p className="text-slate-500 text-sm">Nenhum subalvo detectado.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -479,15 +481,16 @@ export default function Results() {
                       <td className="py-2.5 pr-3">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${s.Score > 0.8 ? 'bg-amber-400' : s.Score > 0.6 ? 'bg-orange-400' : 'bg-slate-500'}`} style={{ width: `${(s.Score * 100).toFixed(0)}%` }} />
+                            <div className={`h-full rounded-full ${s.Score > 0.8 ? 'bg-amber-400' : s.Score > 0.6 ? 'bg-orange-400' : 'bg-slate-500'}`}
+                              style={{ width: `${(s.Score * 100).toFixed(0)}%` }} />
                           </div>
                           <span className="font-mono font-bold text-white">{(s.Score * 100).toFixed(1)}%</span>
                         </div>
                       </td>
-                      <td className="py-2.5 pr-3 font-mono text-slate-400">{(s.Lon ?? 0).toFixed(5)}Â°</td>
-                      <td className="py-2.5 pr-3 font-mono text-slate-400">{(s.Lat ?? 0).toFixed(5)}Â°</td>
+                      <td className="py-2.5 pr-3 font-mono text-slate-400">{(s.Lon ?? 0).toFixed(5)}&deg;</td>
+                      <td className="py-2.5 pr-3 font-mono text-slate-400">{(s.Lat ?? 0).toFixed(5)}&deg;</td>
                       <td className="py-2.5 pr-3 font-mono text-slate-400">{(s.DistanceToTarget_km ?? 0).toFixed(2)}</td>
-                      <td className="py-2.5 text-slate-400 max-w-xs">{s.Justificativa ?? 'â€”'}</td>
+                      <td className="py-2.5 text-slate-400 max-w-xs">{s.Justificativa ?? '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -497,21 +500,21 @@ export default function Results() {
         </div>
       )}
 
-      {/* â”€â”€ Tab 5: AnÃ¡lise Radial â”€â”€ */}
+      {/* Tab 5 - Analise Radial */}
       {activeTab === 5 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
           <div className="mb-4">
-            <h2 className="text-sm font-semibold text-white">AnÃ¡lise Radial por Alvo</h2>
-            <p className="text-xs text-slate-500 mt-0.5">EstatÃ­sticas do PSI Score dentro do raio de anÃ¡lise por alvo</p>
+            <h2 className="text-sm font-semibold text-white">Analise Radial por Alvo</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Estatisticas do PSI Score dentro do raio de analise por alvo</p>
           </div>
           {!data.targetStats?.length ? (
-            <p className="text-slate-500 text-sm">AnÃ¡lise radial nÃ£o disponÃ­vel. Execute a anÃ¡lise com pelo menos um ponto de interesse.</p>
+            <p className="text-slate-500 text-sm">Analise radial nao disponivel.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-700">
-                    {['Alvo', 'Raio (km)', 'MÃ©dia Local', 'P90', 'MÃ¡x', 'MÃ­n', 'Std', 'ConsistÃªncia', 'Risco DominÃ¢ncia'].map(h => (
+                    {['Alvo', 'Raio (km)', 'Media Local', 'P90', 'Max', 'Min', 'Std', 'Consistencia', 'Risco Dominancia'].map(h => (
                       <th key={h} className="text-left font-medium text-slate-500 pb-2 pr-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -535,13 +538,18 @@ export default function Results() {
                         </div>
                       </td>
                       <td className="py-2.5">
-                        <span className={`font-mono ${(s.DominanceRisk ?? 0) > 0.5 ? 'text-red-400' : 'text-slate-400'}`}>{(s.DominanceRisk ?? 0).toFixed(3)}</span>
+                        <span className={`font-mono ${(s.DominanceRisk ?? 0) > 0.5 ? 'text-red-400' : 'text-slate-400'}`}>
+                          {(s.DominanceRisk ?? 0).toFixed(3)}
+                        </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <p className="text-xs text-slate-600 mt-3">ConsistÃªncia: proximidade entre as camadas â€” quanto maior, mais homogÃªnea a assinatura Â· DominanceRisk: risco de uma Ãºnica camada dominar o score.</p>
+              <p className="text-xs text-slate-600 mt-3">
+                Consistencia: proximidade entre camadas &mdash; quanto maior, mais homogenea a assinatura.
+                DominanceRisk: risco de uma unica camada dominar o score.
+              </p>
             </div>
           )}
         </div>
@@ -573,4 +581,3 @@ function KpiCard({ label, value, sub, icon: Icon, accent }) {
     </div>
   )
 }
-
