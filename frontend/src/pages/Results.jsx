@@ -415,9 +415,9 @@ export default function Results() {
               </Link>
             </div>
           ) : (
-            <iframe src={`/api/analysis/${jobId}/map/3d`} title="Superficie 3D"
+            <iframe src={`/api/analysis/${jobId}/map/3d?token=${token}`} title="Superficie 3D"
               style={{ width: '100%', height: '70vh', border: 'none', background: '#0f172a' }}
-              sandbox="allow-scripts allow-same-origin" />
+              sandbox="allow-scripts" />
           )}
         </div>
       )}

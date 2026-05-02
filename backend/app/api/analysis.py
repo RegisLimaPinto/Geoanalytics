@@ -4,11 +4,39 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
+from app.auth import decode_token
+from app.database import get_db
+from app.models.user import User
+
+_oauth2_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+
+def _get_user_token_or_query(
+    header_token: str | None = Depends(_oauth2_optional),
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Aceita JWT via Authorization header OU ?token= query param."""
+    raw = header_token or token
+    if not raw:
+        raise HTTPException(status_code=401, detail="Token ausente")
+    payload = decode_token(raw)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Token invalido")
+    try:
+        user_id = int(payload.get("sub", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token invalido")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Usuario nao encontrado")
+    return user
 from app.database import get_db
 from app.models.job import AnalysisJob
 from app.models.payment import UserCredits
@@ -288,7 +316,7 @@ async def list_jobs(current_user: User = Depends(get_current_user)):
 @router.get("/{job_id}/map/favorability")
 async def map_favorability(
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(_get_user_token_or_query),
 ):
     """Retorna o PNG do mapa 2D de favorabilidade com contornos."""
     if job_id not in _jobs:
@@ -303,7 +331,7 @@ async def map_favorability(
 @router.get("/{job_id}/map/3d")
 async def map_3d(
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(_get_user_token_or_query),
 ):
     """Retorna o HTML interativo da superfície 3D (Plotly CDN)."""
     if job_id not in _jobs:
