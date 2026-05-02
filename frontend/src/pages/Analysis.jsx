@@ -13,6 +13,14 @@ const DEFAULT_CONFIG = {
   targets: [],
 }
 
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem('geo_analysis_config')
+    if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved), targets: [] }
+  } catch {}
+  return DEFAULT_CONFIG
+}
+
 const STEPS = [
   { label: 'Conectando às fontes de dados', detail: 'CPRM · ICGEM EGM2008', duration: 8000 },
   { label: 'Normalizando camadas geofísicas', detail: 'RobustScaler · Gaussian σ=1.5', duration: 3000 },
@@ -85,13 +93,19 @@ function LoadingOverlay({ step }) {
 }
 
 export default function Analysis() {
-  const [config, setConfig] = useState(DEFAULT_CONFIG)
+  const [config, setConfig] = useState(loadConfig)
   const [loading, setLoading] = useState(false)
   const [loadStep, setLoadStep] = useState(0)
   const [noCredits, setNoCredits] = useState(false)
   const [mapMode, setMapMode] = useState('view')
   const navigate = useNavigate()
   const { token } = useAuth()
+
+  // Persiste config no localStorage sempre que mudar (exceto targets)
+  useEffect(() => {
+    const { targets, ...toSave } = config
+    localStorage.setItem('geo_analysis_config', JSON.stringify(toSave))
+  }, [config])
 
   function handleBboxChange(bbox) {
     setConfig(c => ({ ...c, bbox }))
