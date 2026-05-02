@@ -98,8 +98,14 @@ export default function Analysis() {
   const [loadStep, setLoadStep] = useState(0)
   const [noCredits, setNoCredits] = useState(false)
   const [mapMode, setMapMode] = useState('view')
+  const [toast, setToast] = useState(null)
   const navigate = useNavigate()
   const { token } = useAuth()
+
+  function showToast(msg, color = 'cyan') {
+    setToast({ msg, color })
+    setTimeout(() => setToast(null), 2000)
+  }
 
   // Persiste config no localStorage sempre que mudar (exceto targets)
   useEffect(() => {
@@ -110,14 +116,17 @@ export default function Analysis() {
   function handleBboxChange(bbox) {
     setConfig(c => ({ ...c, bbox }))
     setMapMode('view')
+    showToast(`Area atualizada: ${bbox.lonMin.toFixed(2)} / ${bbox.latMin.toFixed(2)} → ${bbox.lonMax.toFixed(2)} / ${bbox.latMax.toFixed(2)}`, 'cyan')
   }
 
   function handleTargetAdd({ lon, lat }) {
+    let newId
     setConfig(c => {
-      const newId = `T${c.targets.length + 1}`
+      newId = `T${c.targets.length + 1}`
       return { ...c, targets: [...c.targets, { id: newId, lon, lat }] }
     })
     setMapMode('view')
+    showToast(`Ponto adicionado: ${lon.toFixed(3)}, ${lat.toFixed(3)}`, 'amber')
   }
 
   // Avança os steps de loading simulando o progresso real
@@ -196,6 +205,17 @@ export default function Analysis() {
             </button>
           ))}
         </div>
+
+        {/* Toast de confirmacao */}
+        {toast && (
+          <div className={`absolute bottom-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg text-xs font-medium backdrop-blur shadow-lg border transition-all ${
+            toast.color === 'cyan'
+              ? 'bg-cyan-900/95 border-cyan-500/50 text-cyan-300'
+              : 'bg-amber-900/95 border-amber-500/50 text-amber-300'
+          }`}>
+            {toast.msg}
+          </div>
+        )}
 
         {/* Instrucao contextual */}
         {mapMode === 'draw-bbox' && (

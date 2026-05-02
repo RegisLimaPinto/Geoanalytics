@@ -11,7 +11,7 @@ function FitBounds({ bbox }) {
     map.fitBounds([
       [bbox.latMin, bbox.lonMin],
       [bbox.latMax, bbox.lonMax],
-    ], { padding: [24, 24] })
+    ], { padding: [80, 80] })
   }, [bbox, map])
   return null
 }
@@ -28,6 +28,7 @@ function CursorManager({ mode }) {
 function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
   const [firstClick, setFirstClick] = useState(null)
   const [hover, setHover] = useState(null)
+  const [confirmed, setConfirmed] = useState(null) // bbox flash
 
   useMapEvents({
     click(e) {
@@ -36,12 +37,15 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
         if (!firstClick) {
           setFirstClick({ lat, lng })
         } else {
-          onBboxChange({
+          const newBbox = {
             lonMin: parseFloat(Math.min(firstClick.lng, lng).toFixed(4)),
             latMin: parseFloat(Math.min(firstClick.lat, lat).toFixed(4)),
             lonMax: parseFloat(Math.max(firstClick.lng, lng).toFixed(4)),
             latMax: parseFloat(Math.max(firstClick.lat, lat).toFixed(4)),
-          })
+          }
+          setConfirmed(newBbox)
+          setTimeout(() => setConfirmed(null), 800)
+          onBboxChange(newBbox)
           setFirstClick(null)
           setHover(null)
         }
@@ -53,6 +57,19 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
       if (mode === 'draw-bbox' && firstClick) setHover(e.latlng)
     },
   })
+
+  // Flash de confirmacao (bbox confirmada)
+  if (confirmed) {
+    return (
+      <Rectangle
+        bounds={[
+          [confirmed.latMin, confirmed.lonMin],
+          [confirmed.latMax, confirmed.lonMax],
+        ]}
+        pathOptions={{ color: '#22d3ee', weight: 2, fill: true, fillColor: '#22d3ee', fillOpacity: 0.25 }}
+      />
+    )
+  }
 
   if (mode === 'draw-bbox' && firstClick && hover) {
     return (
@@ -100,10 +117,10 @@ export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', on
         <MapInteraction mode={mode} onBboxChange={onBboxChange} onTargetAdd={onTargetAdd} />
       )}
 
-      {/* Bounding box da area de analise */}
+      {/* Bounding box da area de analise - fill mais visivel */}
       <Rectangle
         bounds={[[bbox.latMin, bbox.lonMin], [bbox.latMax, bbox.lonMax]]}
-        pathOptions={{ color: '#f59e0b', weight: 1.5, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.04 }}
+        pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.10 }}
       />
 
       {/* Raio de analise por alvo */}
