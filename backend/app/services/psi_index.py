@@ -32,26 +32,30 @@ _PSI_CFG = {
 # ── Pesos do PSI Index por commodity ─────────────────────────────────────────
 
 WEIGHTS: dict[str, dict[str, float]] = {
+    # Pesos idênticos ao GeoProspecting_Ouro_Pipeline.ipynb
     "OURO": {
-        "K": 0.30,
-        "U": 0.15,
-        "Th": 0.05,
-        "MAG": 0.30,
-        "GRAV": 0.20,
+        "K":         0.40,   # alteração potássica — indicador primário de Au
+        "GRAD":      0.25,   # gradiente espacial do K — controle estrutural
+        "MAG":       0.15,   # magnetometria — controle litológico
+        "GRAV":      0.10,   # gravimetria — controle crustal
+        "U":         0.05,   # urânio — complementar
+        "Th":        0.05,   # tório — complementar
     },
     "COBRE": {
-        "K": 0.20,
-        "U": 0.10,
-        "Th": 0.05,
-        "MAG": 0.40,
-        "GRAV": 0.25,
+        "K":         0.20,
+        "GRAD":      0.20,
+        "MAG":       0.35,
+        "GRAV":      0.15,
+        "U":         0.05,
+        "Th":        0.05,
     },
     "FERRO": {
-        "K": 0.10,
-        "U": 0.05,
-        "Th": 0.05,
-        "MAG": 0.55,
-        "GRAV": 0.25,
+        "K":         0.05,
+        "GRAD":      0.10,
+        "MAG":       0.55,
+        "GRAV":      0.25,
+        "U":         0.03,
+        "Th":        0.02,
     },
 }
 
@@ -279,12 +283,40 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     # Normalize
     normalized = _normalize_layers(layers)
 
-    # PSI Index (base — soma ponderada)
+    # Suavização Gaussiana (sigma=1.5 pixels) — reduz ruído de alta frequência
+    # Idêntico ao notebook: gaussian_filter(dados_norm[k], sigma=1.5)
+    SMOOTH_SIGMA = 1.5
+    smoothed = {
+        k: gaussian_filter(v.astype(np.float32), sigma=SMOOTH_SIGMA)
+        for k, v in normalized.items()
+    }
+
+    # Camada GRAD: gradiente espacial do K — controle estrutural (peso 0.25 no OURO)
+    k_layer = smoothed.get("K", np.zeros((nx, ny), dtype=np.float32))
+    gx, gy = np.gradient(k_layer)
+    grad_k = np.sqrt(gx ** 2 + gy ** 2)
+    grad_max = grad_k.max()
+    smoothed["GRAD"] = grad_k / grad_max if grad_max > 1e-9 else grad_k
+
+    # PSI Index base (soma ponderada com camadas suavizadas + GRAD)
     weights = WEIGHTS.get(commodity, WEIGHTS["OURO"])
-    psi_base = _compute_psi_index(normalized, weights)
+    psi_base = _compute_psi_index(smoothed, weights)
+
+    # Bônus de desacoplamento: K alto + MAG/GRAV baixos → padrão epitermal/Au
+    mag_sm = smoothed.get("MAG", np.zeros_like(psi_base))
+    grav_sm = smoothed.get("GRAV", np.zeros_like(psi_base))
+    mag_grav_medio = (mag_sm + grav_sm) / 2
+    k_sm = smoothed.get("K", np.zeros_like(psi_base))
+    bonus = np.where((k_sm > 0.6) & (mag_grav_medio < 0.5), 0.08 * k_sm, 0.0)
+    psi_base = np.clip(psi_base + bonus, 0, 1)
+
+    # Re-normalizar o score base
+    psi_min, psi_max = psi_base.min(), psi_base.max()
+    if psi_max - psi_min > 1e-9:
+        psi_base = (psi_base - psi_min) / (psi_max - psi_min)
 
     # GeoPSI v4.0 — ajuste estatístico não-linear
-    sigma = _compute_shielding_index(normalized)
+    sigma = _compute_shielding_index(smoothed)
     field = _compute_latent_field(sigma, LON, LAT, bbox)
     gradient = _compute_shielding_gradient(sigma)
     psi = _psi_adjust_score(psi_base, sigma, field, gradient)
@@ -295,17 +327,19 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     # Rank targets
     ranked_targets = _rank_targets(targets_input, psi, LON, LAT, radius_km)
 
-    # Radiometric profile
+    # Radiometric profile (usa camadas suavizadas, exclui GRAD que é derivada)
     ternary = _compute_radiometric_profile(
-        layers, normalized, targets_input, LON, LAT, radius_km
+        layers, smoothed, targets_input, LON, LAT, radius_km
     )
 
-    # Layer anomaly summary (mean of top 5% per layer)
+    # Layer anomaly summary (mean of top 5% per layer) — exclui GRAD
     layer_summary = []
-    for name, arr in normalized.items():
+    for name, arr in smoothed.items():
+        if name == "GRAD":
+            continue
         threshold = np.percentile(arr, 95)
         anomaly = float(arr[arr >= threshold].mean())
-        layer_summary.append({"name": f"{name}", "anomaly": round(anomaly, 3)})
+        layer_summary.append({"name": name, "anomaly": round(anomaly, 3)})
 
     # Friendly layer names
     label_map = {
@@ -323,7 +357,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     # Gera zonas, subalvos e PDF via output_pipeline
     output = run_full_output_pipeline(
         psi_grid=psi,
-        normalized_layers=normalized,
+        normalized_layers={k: v for k, v in smoothed.items() if k != "GRAD"},
         config={**config, "bbox": bbox, "commodity": commodity, "dataType": data_type},
     )
 

@@ -179,6 +179,47 @@ async def download_report(
     )
 
 
+@router.get("/{job_id}/csv/{dataset}")
+async def download_csv(
+    job_id: str,
+    dataset: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Baixa tabelas CSV do job.
+    dataset: 'zonas' | 'subalvos' | 'alvos'
+    """
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+
+    dataset_map = {
+        "zonas": ("zones", "zonas_prioritarias"),
+        "subalvos": ("subtargets", "subalvos_recomendados"),
+        "alvos": ("targetStats", "analise_radial"),
+    }
+    if dataset not in dataset_map:
+        raise HTTPException(status_code=400, detail="dataset deve ser: zonas, subalvos ou alvos")
+
+    key, filename_base = dataset_map[dataset]
+    records = _jobs[job_id].get(key, [])
+    if not records:
+        raise HTTPException(status_code=404, detail="Dados não disponíveis para este job")
+
+    import io
+    import pandas as pd
+    df = pd.DataFrame(records)
+    buf = io.StringIO()
+    df.to_csv(buf, index=False)
+    csv_bytes = buf.getvalue().encode("utf-8")
+    date_str = _jobs[job_id].get("createdAt", "")[:10]
+    commodity = _jobs[job_id].get("commodity", "GEO")
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename_base}_{commodity}_{date_str}.csv"'},
+    )
+
+
 @router.get("/jobs", response_model=list[dict])
 async def list_jobs(current_user: User = Depends(get_current_user)):
     """Lista os jobs de análise disponíveis."""

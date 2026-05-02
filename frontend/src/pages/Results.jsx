@@ -149,14 +149,46 @@ export default function Results() {
             </span>
           )}
         </div>
-        <button
-          onClick={handleExportPDF}
-          disabled={exporting}
-          className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-50 text-slate-400 px-3 py-1.5 rounded-md transition-colors"
-        >
-          <ArrowDownTrayIcon className="w-4 h-4" />
-          {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
-        </button>
+        <div className="flex items-center gap-2">
+          {data.jobId !== 'demo-synthetic' && (
+            <>
+              {[
+                { ds: 'zonas', label: 'zonas.csv' },
+                { ds: 'subalvos', label: 'subalvos.csv' },
+                { ds: 'alvos', label: 'alvos.csv' },
+              ].map(({ ds, label }) => (
+                <button
+                  key={ds}
+                  onClick={async () => {
+                    const res = await fetch(`/api/analysis/${data.jobId}/csv/${ds}`, {
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    if (!res.ok) return
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `${ds}_${data.commodity}_${data.createdAt?.slice(0,10)}.csv`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                  className="flex items-center gap-1 text-xs border border-slate-700 hover:border-slate-500 text-slate-500 hover:text-slate-300 px-2 py-1.5 rounded-md transition-colors"
+                >
+                  <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-50 text-slate-400 px-3 py-1.5 rounded-md transition-colors"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+            {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
+          </button>
+        </div>
       </div>
 
       {/* Conteúdo capturado para PDF */}
