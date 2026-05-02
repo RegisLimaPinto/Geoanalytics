@@ -26,6 +26,9 @@ _job_pdfs: dict[str, bytes] = {}
 # Raw data for lazy PDF generation (numpy arrays + DataFrames)
 _job_pdf_raw: dict[str, dict] = {}
 
+# Map assets per job: {"png": bytes, "html": bytes}
+_job_maps: dict[str, dict[str, bytes]] = {}
+
 # Uploaded layers keyed by session token hash → {internal_key: np.ndarray}
 # Stored as lists (serializable for JSON) only after analysis starts
 _uploaded_layers: dict[str, dict[str, Any]] = {}
@@ -145,6 +148,12 @@ async def run_analysis(
     if pdf_raw:
         _job_pdf_raw[job_id] = pdf_raw
 
+    # Guardar mapas PNG e HTML 3D
+    map_png = result.pop("_map_png", b"")
+    map_3d = result.pop("_map_3d", b"")
+    if map_png or map_3d:
+        _job_maps[job_id] = {"png": map_png, "html": map_3d}
+
     _jobs[job_id] = result
 
     return {"job_id": job_id, "status": "completed"}
@@ -253,3 +262,33 @@ async def list_jobs(current_user: User = Depends(get_current_user)):
         {"job_id": k, "commodity": v.get("commodity"), "createdAt": v.get("createdAt")}
         for k, v in _jobs.items()
     ]
+
+
+@router.get("/{job_id}/map/favorability")
+async def map_favorability(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna o PNG do mapa 2D de favorabilidade com contornos."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    maps = _job_maps.get(job_id, {})
+    png = maps.get("png", b"")
+    if not png:
+        raise HTTPException(status_code=404, detail="Mapa PNG não disponível")
+    return Response(content=png, media_type="image/png")
+
+
+@router.get("/{job_id}/map/3d")
+async def map_3d(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna o HTML interativo da superfície 3D (Plotly CDN)."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    maps = _job_maps.get(job_id, {})
+    html = maps.get("html", b"")
+    if not html:
+        raise HTTPException(status_code=404, detail="Mapa 3D não disponível")
+    return Response(content=html, media_type="text/html")

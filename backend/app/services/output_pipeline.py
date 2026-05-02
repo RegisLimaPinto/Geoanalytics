@@ -472,6 +472,280 @@ def generate_pdf_report(
 
 
 # ============================================================
+# CLASSIFICAÇÃO E ENRIQUECIMENTO
+# ============================================================
+
+def _classify_zones(zones_df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona coluna 'Classe' (Alta / Média / Baixa) por percentil do PriorityScore."""
+    if zones_df.empty:
+        return zones_df
+    df = zones_df.copy()
+    q66 = df["PriorityScore"].quantile(0.66)
+    q33 = df["PriorityScore"].quantile(0.33)
+    df["Classe"] = df["PriorityScore"].apply(
+        lambda s: "Alta" if s >= q66 else ("Média" if s >= q33 else "Baixa")
+    )
+    return df
+
+
+def _add_subtarget_justification(subtargets_df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona coluna 'Justificativa' baseada no Score PSI."""
+    if subtargets_df.empty:
+        return subtargets_df
+    df = subtargets_df.copy()
+
+    def _justify(s):
+        if s >= 0.80:
+            return "Máximo local de alta favorabilidade — candidato primário"
+        elif s >= 0.65:
+            return "Máximo local moderado — candidato secundário"
+        elif s >= 0.50:
+            return "Máximo local abaixo da média — candidato exploratório"
+        return "Score baixo — reavaliação recomendada"
+
+    df["Justificativa"] = df["Score"].apply(_justify)
+    return df
+
+
+# ============================================================
+# 5) MAPA 2D DE FAVORABILIDADE — PNG
+# ============================================================
+
+def generate_favorability_png(
+    score_grid: np.ndarray,
+    config: dict,
+    zones_df: pd.DataFrame,
+    subtargets_df: pd.DataFrame,
+) -> bytes:
+    """
+    Gera PNG do mapa 2D de favorabilidade com:
+      - Heatmap do score PSI
+      - Contornos top 5%, 10%, 20%
+      - Centroides das zonas prioritárias
+      - Subalvos recomendados
+      - Alvos do cliente
+    """
+    bbox = config["bbox"]
+    commodity = config.get("commodity", "OURO")
+    targets = config.get("targets", [])
+    bbox_extent = [bbox["lonMin"], bbox["lonMax"], bbox["latMin"], bbox["latMax"]]
+
+    lons = np.linspace(bbox["lonMin"], bbox["lonMax"], score_grid.shape[1])
+    lats = np.linspace(bbox["latMin"], bbox["latMax"], score_grid.shape[0])
+
+    fig, ax = plt.subplots(figsize=(12, 9))
+    fig.patch.set_facecolor("#0f172a")
+    ax.set_facecolor("#0f172a")
+
+    # Heatmap
+    im = ax.imshow(
+        score_grid, extent=bbox_extent, origin="lower",
+        aspect="auto", cmap="RdYlGn", alpha=0.88, vmin=0, vmax=1,
+    )
+
+    # Contornos: top 5% / 10% / 20%
+    contour_spec = [
+        (95, "#ef4444", "Top 5%",  2.0),
+        (90, "#f97316", "Top 10%", 1.5),
+        (80, "#eab308", "Top 20%", 1.0),
+    ]
+    for pct, color, lbl, lw in contour_spec:
+        level = float(np.percentile(score_grid, pct))
+        cs = ax.contour(lons, lats, score_grid, levels=[level],
+                        colors=[color], linewidths=[lw], alpha=0.9)
+        if cs.collections:
+            cs.collections[0].set_label(lbl)
+
+    # Centroides das zonas
+    if not zones_df.empty:
+        ax.scatter(
+            zones_df["CentroidLon"], zones_df["CentroidLat"],
+            s=70, marker="D", c="#60a5fa", zorder=8, alpha=0.90,
+            edgecolors="white", linewidths=0.5, label="Centroide de zona",
+        )
+
+    # Subalvos top-10
+    if not subtargets_df.empty and "Lon" in subtargets_df.columns:
+        top_subs = subtargets_df.sort_values("Score", ascending=False).head(10)
+        ax.scatter(
+            top_subs["Lon"], top_subs["Lat"],
+            s=45, marker="^", c="#a78bfa", zorder=9, alpha=0.90,
+            edgecolors="white", linewidths=0.4, label="Subalvo",
+        )
+
+    # Alvos do cliente
+    for t in targets:
+        ax.plot(t["lon"], t["lat"], "*",
+                color="#f59e0b", markersize=14, markeredgewidth=0.8,
+                markeredgecolor="white", zorder=10)
+        ax.text(t["lon"] + 0.025, t["lat"] + 0.015, t["id"],
+                color="white", fontsize=8, fontweight="bold",
+                zorder=11, bbox=dict(boxstyle="round,pad=0.2",
+                                     facecolor="#0f172a", alpha=0.7, edgecolor="none"))
+
+    ax.set_title(f"Mapa de Favorabilidade — {commodity}",
+                 color="white", fontsize=14, fontweight="bold", pad=12)
+    ax.set_xlabel("Longitude", color="#94a3b8", fontsize=10)
+    ax.set_ylabel("Latitude", color="#94a3b8", fontsize=10)
+    ax.tick_params(colors="#64748b", labelsize=8)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#334155")
+
+    cbar = plt.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
+    cbar.set_label("Score PSI  0 → 1", color="#94a3b8", fontsize=9)
+    cbar.ax.tick_params(colors="#64748b", labelsize=8)
+
+    legend = ax.legend(
+        loc="lower right", facecolor="#1e293b",
+        edgecolor="#334155", labelcolor="white", fontsize=8,
+    )
+
+    ax.text(
+        0.01, 0.01,
+        "⚠ Score indica favorabilidade relativa — não é teor, reserva ou profundidade",
+        color="#64748b", fontsize=7, transform=ax.transAxes, va="bottom",
+    )
+
+    plt.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150,
+                facecolor=fig.get_facecolor(), bbox_inches="tight")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+# ============================================================
+# 6) MAPA 3D INTERATIVO — HTML + Plotly CDN
+# ============================================================
+
+def generate_3d_html(
+    score_grid: np.ndarray,
+    config: dict,
+    subtargets_df: pd.DataFrame,
+) -> bytes:
+    """
+    Gera HTML interativo com superfície 3D de favorabilidade via Plotly CDN.
+    Eixo Z = Score PSI (não é profundidade geológica).
+    """
+    import json
+
+    bbox = config["bbox"]
+    commodity = config.get("commodity", "OURO")
+    targets = config.get("targets", [])
+
+    # Downsample para performance no browser (máx 80×80)
+    h, w = score_grid.shape
+    step_h = max(1, h // 80)
+    step_w = max(1, w // 80)
+    grid_ds = score_grid[::step_h, ::step_w]
+    h2, w2 = grid_ds.shape
+
+    lons = np.linspace(bbox["lonMin"], bbox["lonMax"], w2).tolist()
+    lats = np.linspace(bbox["latMin"], bbox["latMax"], h2).tolist()
+    z_data = np.round(grid_ds, 4).tolist()
+
+    plot_data = [
+        {
+            "type": "surface",
+            "x": lons,
+            "y": lats,
+            "z": z_data,
+            "colorscale": "RdYlGn",
+            "opacity": 0.92,
+            "showscale": True,
+            "colorbar": {
+                "title": {"text": "Score PSI", "font": {"color": "#94a3b8"}},
+                "tickfont": {"color": "#94a3b8"},
+            },
+            "name": "Favorabilidade",
+            "hovertemplate": "Lon: %{x:.3f}<br>Lat: %{y:.3f}<br>PSI: %{z:.3f}<extra></extra>",
+        }
+    ]
+
+    # Subalvos como scatter3d
+    if not subtargets_df.empty and "Lon" in subtargets_df.columns:
+        top_subs = subtargets_df.sort_values("Score", ascending=False).head(12)
+        plot_data.append({
+            "type": "scatter3d",
+            "mode": "markers+text",
+            "x": top_subs["Lon"].round(4).tolist(),
+            "y": top_subs["Lat"].round(4).tolist(),
+            "z": (top_subs["Score"] + 0.02).round(4).tolist(),
+            "text": [f"Sub {r}" for r in top_subs["Rank"].tolist()],
+            "marker": {"size": 5, "color": "#a78bfa", "symbol": "diamond",
+                       "line": {"color": "white", "width": 0.5}},
+            "textfont": {"color": "white", "size": 8},
+            "name": "Subalvos",
+            "hovertemplate": "Lon: %{x:.4f}<br>Lat: %{y:.4f}<br>Score: %{z:.3f}<extra>Subalvo</extra>",
+        })
+
+    # Alvos do cliente
+    for t in targets:
+        z_val = float(t.get("psiScore", 0.5)) + 0.04
+        plot_data.append({
+            "type": "scatter3d",
+            "mode": "markers+text",
+            "x": [float(t["lon"])],
+            "y": [float(t["lat"])],
+            "z": [z_val],
+            "text": [t["id"]],
+            "marker": {"size": 9, "color": "#f59e0b", "symbol": "diamond",
+                       "line": {"color": "white", "width": 1}},
+            "textfont": {"color": "white", "size": 10, "family": "bold"},
+            "name": t["id"],
+            "hovertemplate": f"Alvo {t['id']}<br>PSI: {z_val:.3f}<extra></extra>",
+        })
+
+    layout = {
+        "title": {
+            "text": f"Superfície 3D de Favorabilidade — {commodity}",
+            "font": {"color": "white", "size": 16},
+        },
+        "scene": {
+            "xaxis": {"title": "Longitude", "titlefont": {"color": "#94a3b8"},
+                      "tickfont": {"color": "#64748b"}, "gridcolor": "#334155",
+                      "backgroundcolor": "#0f172a"},
+            "yaxis": {"title": "Latitude", "titlefont": {"color": "#94a3b8"},
+                      "tickfont": {"color": "#64748b"}, "gridcolor": "#334155",
+                      "backgroundcolor": "#0f172a"},
+            "zaxis": {"title": "Score PSI (0–1)", "titlefont": {"color": "#94a3b8"},
+                      "tickfont": {"color": "#64748b"}, "gridcolor": "#334155",
+                      "backgroundcolor": "#0f172a", "range": [0, 1]},
+            "bgcolor": "#0f172a",
+        },
+        "paper_bgcolor": "#0f172a",
+        "plot_bgcolor": "#0f172a",
+        "font": {"color": "white"},
+        "legend": {"font": {"color": "white"}, "bgcolor": "#1e293b",
+                   "bordercolor": "#334155", "borderwidth": 1},
+        "margin": {"l": 0, "r": 0, "t": 50, "b": 40},
+        "annotations": [{
+            "text": "⚠ Eixo Z = Score PSI de favorabilidade — NÃO representa profundidade geológica",
+            "showarrow": False,
+            "xref": "paper", "yref": "paper",
+            "x": 0.5, "y": -0.04,
+            "font": {"color": "#64748b", "size": 10},
+            "align": "center",
+        }],
+    }
+
+    html = (
+        "<!DOCTYPE html><html><head>"
+        '<meta charset="utf-8">'
+        f'<title>GeoAnalytics 3D — {commodity}</title>'
+        "<script src=\"https://cdn.plot.ly/plotly-2.27.0.min.js\"></script>"
+        "<style>*{margin:0;padding:0;box-sizing:border-box}"
+        "body{background:#0f172a}#plot{width:100vw;height:100vh}</style>"
+        "</head><body><div id=\"plot\"></div><script>"
+        f"var data={json.dumps(plot_data, separators=(',',':'))};"
+        f"var layout={json.dumps(layout, separators=(',',':'))};"
+        "Plotly.newPlot('plot',data,layout,{responsive:true,displayModeBar:true});"
+        "</script></body></html>"
+    )
+    return html.encode("utf-8")
+
+
+# ============================================================
 # ORQUESTRADOR PRINCIPAL
 # ============================================================
 
@@ -494,6 +768,7 @@ def run_full_output_pipeline(
         min_area_km2=0.05,
         max_zones_per_target=5,
     )
+    zones_df = _classify_zones(zones_df)
 
     subtargets_df = detect_subtargets(
         score_grid=psi_grid,
@@ -503,6 +778,7 @@ def run_full_output_pipeline(
         threshold_quantile=0.90,
         max_subtargets_per_target=6,
     )
+    subtargets_df = _add_subtarget_justification(subtargets_df)
 
     target_stats_df = analyze_targets_radially(
         score_grid=psi_grid,
@@ -510,6 +786,17 @@ def run_full_output_pipeline(
         config=config,
         radius_km=min(radius_km, 10),
     )
+
+    # Gerar PNG 2D e HTML 3D (rápido — incluídos no pipeline)
+    try:
+        map_png = generate_favorability_png(psi_grid, config, zones_df, subtargets_df)
+    except Exception:
+        map_png = b""
+
+    try:
+        map_3d_html = generate_3d_html(psi_grid, config, subtargets_df)
+    except Exception:
+        map_3d_html = b""
 
     # Serializar para JSON-safe
     def df_to_records(df):
@@ -519,8 +806,10 @@ def run_full_output_pipeline(
         "zones": df_to_records(zones_df),
         "subtargets": df_to_records(subtargets_df),
         "targetStats": df_to_records(target_stats_df),
-        # PDF gerado sob demanda em /report (não durante a análise)
+        # PDF gerado sob demanda em /report
         "pdfBytes": None,
+        "mapPng": map_png,
+        "map3dHtml": map_3d_html,
         "_pdf_raw": {
             "psi_grid": psi_grid,
             "layers": normalized_layers,

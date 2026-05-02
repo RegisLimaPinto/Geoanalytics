@@ -321,6 +321,24 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     gradient = _compute_shielding_gradient(sigma)
     psi = _psi_adjust_score(psi_base, sigma, field, gradient)
 
+    # Auto-detectar alvos a partir dos top máximos locais do PSI
+    # quando o usuário não informou nenhum ponto de interesse
+    if not targets_input:
+        local_max_mask = psi == maximum_filter(psi, size=max(3, min(nx, ny) // 15))
+        threshold_auto = np.percentile(psi, 90)
+        cand_mask = local_max_mask & (psi >= threshold_auto)
+        ys_c, xs_c = np.where(cand_mask)
+        if len(ys_c) > 0:
+            top_idx = np.argsort(psi[ys_c, xs_c])[::-1][:3]
+            targets_input = [
+                {
+                    "id": f"Z{i + 1}",
+                    "lon": float(lons_1d[xs_c[idx]]),
+                    "lat": float(lats_1d[ys_c[idx]]),
+                }
+                for i, idx in enumerate(top_idx)
+            ]
+
     # Priority zones (usa o score ajustado)
     _, n_zones = _find_priority_zones(psi, top_pct=0.05)
 
@@ -377,5 +395,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "targetStats": output["targetStats"],
         # dados para geração lazy do PDF (não serializado no JSON)
         "_pdf_raw": {**output["_pdf_raw"], "config": pipeline_config},
+        "_map_png": output.get("mapPng", b""),
+        "_map_3d": output.get("map3dHtml", b""),
         "createdAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }
