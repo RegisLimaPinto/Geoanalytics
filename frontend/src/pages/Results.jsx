@@ -5,7 +5,9 @@ import {
     MapPinIcon,
     TrophyIcon,
 } from '@heroicons/react/24/outline'
-import { useEffect, useState } from 'react'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { KUThBars, LayerRadar, PSIBars } from '../components/Charts/GeoCharts'
 
@@ -66,6 +68,38 @@ export default function Results() {
   const [params] = useSearchParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const reportRef = useRef(null)
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current || exporting) return
+    setExporting(true)
+    try {
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#0f172a',
+        logging: false,
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const imgH = (canvas.height * pageW) / canvas.width
+      let yPos = 0
+      let remaining = imgH
+      while (remaining > 0) {
+        pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
+        remaining -= pageH
+        yPos += pageH
+        if (remaining > 0) pdf.addPage()
+      }
+      const filename = `GeoAnalytics_${data.commodity}_${new Date().toISOString().slice(0, 10)}.pdf`
+      pdf.save(filename)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     const jobId = params.get('job_id')
@@ -117,11 +151,18 @@ export default function Results() {
             </span>
           )}
         </div>
-        <button className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 text-slate-400 px-3 py-1.5 rounded-md transition-colors">
+        <button
+          onClick={handleExportPDF}
+          disabled={exporting}
+          className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-50 text-slate-400 px-3 py-1.5 rounded-md transition-colors"
+        >
           <ArrowDownTrayIcon className="w-4 h-4" />
-          Exportar PDF
+          {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
         </button>
       </div>
+
+      {/* Conteúdo capturado para PDF */}
+      <div ref={reportRef}>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -285,6 +326,7 @@ export default function Results() {
         ⚠ Dados sintéticos para demonstração metodológica · PSI Index é indicador relativo —
         não é teor, reserva ou laudo geológico · Use como ferramenta de apoio à decisão
       </div>
+      </div>{/* fim ref={reportRef} */}
     </div>
   )
 }
