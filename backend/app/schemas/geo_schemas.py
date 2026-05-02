@@ -79,4 +79,5 @@ class AnalysisResult(BaseModel):
     layers: list[LayerSummary]
     ternary: list[TernaryPoint]
     topZones: int
+    radiusKm: float = 20.0
     createdAt: str

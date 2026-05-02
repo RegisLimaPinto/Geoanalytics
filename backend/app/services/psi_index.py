@@ -255,5 +255,6 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "layers": layer_summary,
         "ternary": ternary,
         "topZones": int(n_zones),
+        "radiusKm": radius_km,
         "createdAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }

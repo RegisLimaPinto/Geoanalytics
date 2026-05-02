@@ -58,7 +58,7 @@ export default function Analysis() {
 
       {/* Mapa principal */}
       <div className="flex-1 relative">
-        <GeoMap bbox={config.bbox} targets={config.targets} />
+        <GeoMap bbox={config.bbox} targets={config.targets} radiusKm={config.radiusKm} />
 
         {/* Banner créditos insuficientes */}
         {noCredits && (

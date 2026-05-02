@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, TileLayer, Rectangle, CircleMarker, Tooltip, Circle, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
-// CartoDB Dark Matter — gratuito, sem token, sem limite
+// CartoDB Dark Matter ï¿½ gratuito, sem token, sem limite
 const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
 
@@ -17,11 +17,14 @@ function FitBounds({ bbox }) {
   return null
 }
 
-export default function GeoMap({ bbox, targets }) {
+export default function GeoMap({ bbox, targets, radiusKm = 20 }) {
   const center = [
     (bbox.latMin + bbox.latMax) / 2,
     (bbox.lonMin + bbox.lonMax) / 2,
   ]
+
+  // Raio em metros para o Leaflet
+  const radiusM = radiusKm * 1000
 
   return (
     <MapContainer
@@ -42,13 +45,20 @@ export default function GeoMap({ bbox, targets }) {
         pathOptions={{ color: '#f59e0b', weight: 1.5, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.04 }}
       />
 
-      {/* Halo de calor por alvo (raio proporcional ao score PSI) */}
+      {/* Raio de anÃ¡lise real por alvo (= radiusKm configurado) */}
       {targets.map(t => (
         <Circle
-          key={`halo-${t.id}`}
+          key={`radius-${t.id}`}
           center={[t.lat, t.lon]}
-          radius={(t.psiScore ?? 0.5) * 35000}
-          pathOptions={{ color: 'transparent', fillColor: '#f59e0b', fillOpacity: 0.13 }}
+          radius={radiusM}
+          pathOptions={{
+            color: '#f59e0b',
+            weight: 1,
+            dashArray: '5 4',
+            fill: true,
+            fillColor: '#f59e0b',
+            fillOpacity: t.psiScore ? Math.max(0.05, (t.psiScore ?? 0.5) * 0.18) : 0.07,
+          }}
         />
       ))}
 
@@ -64,7 +74,7 @@ export default function GeoMap({ bbox, targets }) {
             <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>
               {t.id}
               {t.psiScore !== undefined && (
-                <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {(t.psiScore * 100).toFixed(0)}%</span>
+                <span style={{ color: '#94a3b8', fontWeight: 400 }}> ï¿½ {(t.psiScore * 100).toFixed(0)}%</span>
               )}
             </span>
           </Tooltip>

@@ -10,6 +10,8 @@ import jsPDF from 'jspdf'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { KUThBars, LayerRadar, PSIBars } from '../components/Charts/GeoCharts'
+import { useAuth } from '../context/AuthContext'
+import GeoMap from '../components/Map/GeoMap'
 
 // ── Demo data (baseado no notebook GeoProspecting_Ouro_Pipeline) ──────────────
 const DEMO = {
@@ -70,6 +72,7 @@ export default function Results() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const reportRef = useRef(null)
+  const { token } = useAuth()
 
   const handleExportPDF = async () => {
     if (!reportRef.current || exporting) return
@@ -110,11 +113,16 @@ export default function Results() {
       return
     }
 
-    fetch(`/api/analysis/${jobId}/results`)
-      .then((r) => r.json())
+    fetch(`/api/analysis/${jobId}/results`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status)
+        return r.json()
+      })
       .then((d) => { setData(d); setLoading(false) })
       .catch(() => { setData(DEMO); setLoading(false) })
-  }, [params])
+  }, [params, token])
 
   if (loading) {
     return (
@@ -195,6 +203,21 @@ export default function Results() {
           accent="slate"
         />
       </div>
+
+      {/* Mapa de resultados com raio real por alvo */}
+      {data.bbox && data.targets && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Mapa de Favorabilidade — Zonas Analisadas</h2>
+            <span className="text-xs text-slate-500">
+              Raio de análise: <span className="text-amber-400 font-mono">{data.radiusKm ?? 20} km</span> por alvo
+            </span>
+          </div>
+          <div style={{ height: 340 }}>
+            <GeoMap bbox={data.bbox} targets={data.targets} radiusKm={data.radiusKm ?? 20} />
+          </div>
+        </div>
+      )}
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -305,7 +328,7 @@ export default function Results() {
           {[
             { n: 1, title: 'Validação de Campo', desc: `Mapeamento geológico de superfície nas zonas ${topTarget.id} e adjacentes.` },
             { n: 2, title: 'Geoquímica', desc: 'Amostragem de solo/rocha nos subalvos top-ranked para detecção de anomalias.' },
-            { n: 3, title: 'Dados Reais', desc: 'Substituir dados sintéticos por GeoTIFFs de levantamentos reais (MAG, GRAV, RAD).' },
+            { n: 3, title: 'Dados Reais', desc: data.dataType?.includes('sintético') || data.dataType === 'Sintético' ? 'Substitua dados sintéticos por GeoTIFFs de levantamentos reais (MAG, GRAV, RAD) usando o painel de upload.' : `Dados ${data.dataType} já aplicados nesta análise.` },
             { n: 4, title: 'Sondagem', desc: 'Planejar linhas de sondagem com base nas zonas prioritárias confirmadas.' },
           ].map(({ n, title, desc }) => (
             <div key={n} className="flex gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-700">
@@ -321,10 +344,81 @@ export default function Results() {
         </div>
       </div>
 
+      {/* Interpretação Geológica */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-white mb-4">Interpretação Geológica</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm text-slate-300 leading-relaxed">
+          <div className="space-y-2">
+            <p>
+              <span className="text-amber-400 font-semibold">Alvo principal — {topTarget.id}:</span>{' '}
+              PSI Score de <span className="text-white font-mono">{(topTarget.psiScore * 100).toFixed(1)}%</span>{' '}
+              indica favorabilidade {topTarget.psiScore > 0.8 ? 'alta' : topTarget.psiScore > 0.6 ? 'moderada' : 'baixa'} para {data.commodity}.
+              Área analisada de <span className="text-white font-mono">{topTarget.area_km2?.toFixed(1)} km²</span> no raio configurado.
+            </p>
+            <p>
+              Cluster <span className="text-amber-400 font-semibold">{topTarget.cluster}</span> — 
+              alvos no mesmo cluster compartilham padrão geofísico similar e devem ser
+              avaliados em conjunto durante validação de campo.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <p>
+              <span className="text-slate-400 font-medium">Assinatura radiométrica:</span>{' '}
+              {(() => {
+                const t = data.ternary?.find(x => x.name === topTarget.id)
+                if (!t) return 'Perfil radiométrico não disponível.'
+                const dom = t.K >= t.U && t.K >= t.Th ? 'K (Potássio)' : t.U >= t.Th ? 'U (Urânio)' : 'Th (Tório)'
+                return `Dominância de ${dom} (${Math.max(t.K, t.U, t.Th)}%) — típico de ${
+                  dom.startsWith('K') ? 'alteração potássica (granitos, pegmatitos)' :
+                  dom.startsWith('U') ? 'fluidos hidrotermais urânio-ricos' :
+                  'sedimentação de baixo grau'
+                }.`
+              })()}
+            </p>
+            <p>
+              <span className="text-slate-400 font-medium">Fonte dos dados:</span>{' '}
+              <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+                data.dataType?.includes('Upload') || data.dataType?.includes('upload')
+                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                  : data.dataType?.includes('CPRM') || data.dataType?.includes('ICGEM')
+                  ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
+                  : 'bg-slate-700 text-slate-400 border border-slate-600'
+              }`}>
+                {data.dataType}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Informações do relatório */}
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-xs text-slate-500 flex flex-wrap gap-4 justify-between">
+        <div>
+          <span className="text-slate-600">Job ID:</span>{' '}
+          <span className="font-mono text-slate-400">{data.jobId}</span>
+        </div>
+        <div>
+          <span className="text-slate-600">Data/hora:</span>{' '}
+          <span className="font-mono text-slate-400">
+            {data.createdAt ? new Date(data.createdAt).toLocaleString('pt-BR') : '—'}
+          </span>
+        </div>
+        <div>
+          <span className="text-slate-600">Bbox:</span>{' '}
+          <span className="font-mono text-slate-400">
+            {data.bbox?.lonMin?.toFixed(2)}° / {data.bbox?.latMin?.toFixed(2)}° →{' '}
+            {data.bbox?.lonMax?.toFixed(2)}° / {data.bbox?.latMax?.toFixed(2)}°
+          </span>
+        </div>
+        <div>
+          <span className="text-slate-600">Zonas top-5%:</span>{' '}
+          <span className="font-mono text-slate-400">{data.topZones}</span>
+        </div>
+      </div>
+
       {/* Disclaimer */}
       <div className="text-xs text-slate-600 text-center pb-4 leading-relaxed">
-        ⚠ Dados sintéticos para demonstração metodológica · PSI Index é indicador relativo —
-        não é teor, reserva ou laudo geológico · Use como ferramenta de apoio à decisão
+        ⚠ PSI Index é indicador relativo — não é teor, reserva ou laudo geológico · Use como ferramenta de apoio à decisão
       </div>
       </div>{/* fim ref={reportRef} */}
     </div>
