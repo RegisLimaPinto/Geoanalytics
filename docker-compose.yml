@@ -1,0 +1,81 @@
+services:
+  # ── Backend FastAPI ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://geo:geo@postgis:5432/geoanalytics}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontend React ───────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── PostGIS ──────────────────────────────────────────────────────────────────
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: geoanalytics
+      POSTGRES_USER: geo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geo_dev_secret}
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geo -d geoanalytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Caddy (Reverse Proxy + HTTPS) ──────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # ── GeoServer ────────────────────────────────────────────────────────────────
+  geoserver:
+    image: docker.osgeo.org/geoserver:2.24.2
+    ports:
+      - "8600:8080"
+    volumes:
+      - geoserver_data:/opt/geoserver_data
+    environment:
+      - GEOSERVER_ADMIN_USER=${GEOSERVER_ADMIN_USER:-admin}
+      - GEOSERVER_ADMIN_PASSWORD=${GEOSERVER_ADMIN_PASSWORD:-geoserver_secret}
+      - SKIP_DEMO_DATA=true
+    restart: unless-stopped
+
+volumes:
+  postgis_data:
+  geoserver_data:
+  caddy_data:
+  caddy_config:

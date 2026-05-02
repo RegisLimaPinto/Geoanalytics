@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Node / Frontend
+node_modules/
+dist/
+.cache/
+*.local
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Docker volumes / data
+postgis_data/
+geoserver_data/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Caddy certs (gerados em runtime)
+caddy_data/
+caddy_config/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
