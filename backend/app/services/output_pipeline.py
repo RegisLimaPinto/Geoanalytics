@@ -608,7 +608,7 @@ def generate_favorability_png(
 
     plt.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150,
+    fig.savefig(buf, format="png", dpi=96,
                 facecolor=fig.get_facecolor(), bbox_inches="tight")
     plt.close(fig)
     return buf.getvalue()
@@ -729,17 +729,27 @@ def generate_3d_html(
         }],
     }
 
+    # O iframe usa o Plotly já carregado na página pai (window.parent.Plotly)
+    # evitando download de 3MB a cada abertura da aba.
     html = (
         "<!DOCTYPE html><html><head>"
         '<meta charset="utf-8">'
-        f'<title>GeoAnalytics 3D — {commodity}</title>'
-        "<script src=\"https://cdn.plot.ly/plotly-2.27.0.min.js\"></script>"
         "<style>*{margin:0;padding:0;box-sizing:border-box}"
         "body{background:#0f172a}#plot{width:100vw;height:100vh}</style>"
         "</head><body><div id=\"plot\"></div><script>"
+        # tenta usar Plotly da janela pai; senão carrega CDN como fallback
+        "var Plotly=window.Plotly||window.parent&&window.parent.Plotly;"
         f"var data={json.dumps(plot_data, separators=(',',':'))};"
         f"var layout={json.dumps(layout, separators=(',',':'))};"
-        "Plotly.newPlot('plot',data,layout,{responsive:true,displayModeBar:true});"
+        "function render(){"
+        "  Plotly.newPlot('plot',data,layout,{responsive:true,displayModeBar:true});"
+        "}"
+        "if(Plotly){render();}else{"
+        "  var s=document.createElement('script');"
+        "  s.src='https://cdn.plot.ly/plotly-2.27.0.min.js';"
+        "  s.onload=render;"
+        "  document.head.appendChild(s);"
+        "}"
         "</script></body></html>"
     )
     return html.encode("utf-8")
