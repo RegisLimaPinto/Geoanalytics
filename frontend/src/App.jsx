@@ -17,6 +17,12 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function ForceLogout() {
+  localStorage.removeItem('geo_token')
+  sessionStorage.clear()
+  return <Navigate to="/login" replace />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -30,6 +36,7 @@ export default function App() {
               <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
               <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
+              <Route path="/logout" element={<ForceLogout />} />
               <Route path="/register" element={<Register />} />
               <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
               <Route path="/payment/failure" element={<PaymentFailure />} />
