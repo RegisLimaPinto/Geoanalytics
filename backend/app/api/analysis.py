@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime
 from typing import Any
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database import get_db
+from app.models.job import AnalysisJob
 from app.models.payment import UserCredits
 from app.models.user import User
 from app.schemas.geo_schemas import AnalysisConfig, AnalysisResult
@@ -156,6 +158,18 @@ async def run_analysis(
 
     _jobs[job_id] = result
 
+    # Persistir no banco para sobreviver a restarts
+    try:
+        db_job = AnalysisJob(
+            id=job_id,
+            user_id=current_user.id,
+            result_json=json.dumps(result, default=str),
+        )
+        db.merge(db_job)
+        db.commit()
+    except Exception:
+        pass  # fallback gracioso — ainda está em memória
+
     return {"job_id": job_id, "status": "completed"}
 
 
@@ -166,9 +180,16 @@ async def get_results(
     db: Session = Depends(get_db),
 ):
     """Retorna os resultados de uma análise pelo job_id."""
-    if job_id not in _jobs:
+    # Tenta cache em memória primeiro
+    if job_id in _jobs:
+        return _jobs[job_id]
+    # Fallback: busca no banco (sobrevive a restarts)
+    db_job = db.query(AnalysisJob).filter(AnalysisJob.id == job_id).first()
+    if not db_job:
         raise HTTPException(status_code=404, detail="Job não encontrado")
-    return _jobs[job_id]
+    result = db_job.get_result()
+    _jobs[job_id] = result  # repopula cache
+    return result
 
 
 @router.get("/{job_id}/report")
