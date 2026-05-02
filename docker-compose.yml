@@ -1,6 +1,7 @@
 services:
   # ── Backend FastAPI ──────────────────────────────────────────────────────────
   backend:
+    container_name: geoanalytics-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -18,6 +19,7 @@ services:
 
   # ── Frontend React ───────────────────────────────────────────────────────────
   frontend:
+    container_name: geoanalytics-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -29,6 +31,7 @@ services:
 
   # ── PostGIS ──────────────────────────────────────────────────────────────────
   postgis:
+    container_name: geoanalytics-postgis
     image: postgis/postgis:16-3.4
     environment:
       POSTGRES_DB: geoanalytics
@@ -45,6 +48,7 @@ services:
 
   # ── Caddy (Reverse Proxy + HTTPS) ──────────────────────────────────────────
   caddy:
+    container_name: geoanalytics-caddy
     image: caddy:2-alpine
     ports:
       - "80:80"
@@ -61,6 +65,7 @@ services:
 
   # ── GeoServer ────────────────────────────────────────────────────────────────
   geoserver:
+    container_name: geoanalytics-geoserver
     image: docker.osgeo.org/geoserver:2.24.2
     ports:
       - "8600:8080"
