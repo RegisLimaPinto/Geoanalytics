@@ -1,5 +1,5 @@
 """
-Script para criar o usuário administrador inicial.
+Script para criar usuários administradores.
 Uso: python -m app.scripts.create_admin
 """
 import os
@@ -11,36 +11,51 @@ from app.auth import hash_password
 from app.database import SessionLocal, engine
 from app.models.user import Base, User
 
-ADMIN_NAME = os.getenv("ADMIN_NAME", "Regis Lima")
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "regislimapinto@gmail.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin@geo2024")
+# Lista de administradores a garantir no sistema
+ADMINS = [
+    {
+        "name": "Regis Lima",
+        "email": "regislimapinto@gmail.com",
+        "password": "admin@geo2024",
+    },
+    {
+        "name": "Gleudiano",
+        "email": "gleudianoprof@gmail.com",
+        "password": "admin@geo2024",
+    },
+]
 
 
-def create_admin():
+def create_admins():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        existing = db.query(User).filter(User.email == ADMIN_EMAIL).first()
-        if existing:
-            print(f"Administrador já existe: {ADMIN_EMAIL}")
-            return
-        admin = User(
-            name=ADMIN_NAME,
-            email=ADMIN_EMAIL,
-            hashed_password=hash_password(ADMIN_PASSWORD),
-            role="admin",
-            plan="free",
-            is_active=True,
-        )
-        db.add(admin)
-        db.commit()
-        print(f"Administrador criado com sucesso!")
-        print(f"  E-mail: {ADMIN_EMAIL}")
-        print(f"  Senha:  {ADMIN_PASSWORD}")
-        print(f"  Role:   admin | Plan: free (ilimitado)")
+        for adm in ADMINS:
+            existing = db.query(User).filter(User.email == adm["email"]).first()
+            if existing:
+                # Garante role=admin caso o usuário já exista como user comum
+                if existing.role != "admin":
+                    existing.role = "admin"
+                    db.commit()
+                    print(f"Role atualizado para admin: {adm['email']}")
+                else:
+                    print(f"Administrador já existe: {adm['email']}")
+                continue
+
+            admin = User(
+                name=adm["name"],
+                email=adm["email"],
+                hashed_password=hash_password(adm["password"]),
+                role="admin",
+                plan="free",
+                is_active=True,
+            )
+            db.add(admin)
+            db.commit()
+            print(f"Administrador criado: {adm['email']}  |  senha: {adm['password']}")
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    create_admin()
+    create_admins()
