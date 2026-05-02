@@ -9,6 +9,10 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://geo:geo@postgis:5432/geoanalytics}
+      - SECRET_KEY=${SECRET_KEY}
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN:-}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET:-}
+      - BASE_URL=${BASE_URL:-https://mineracaoanalytics.cloud}
       - PYTHONUNBUFFERED=1
     volumes:
       - ./backend:/app
