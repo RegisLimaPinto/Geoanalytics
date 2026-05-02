@@ -1,9 +1,12 @@
 import {
+    ArrowRightOnRectangleIcon,
     BeakerIcon,
     ChartBarIcon,
     MapIcon,
+    UserCircleIcon,
 } from '@heroicons/react/24/outline'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 const NAV = [
   { to: '/', label: 'Início', Icon: MapIcon },
@@ -13,6 +16,10 @@ const NAV = [
 
 export default function Header() {
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => { logout(); navigate('/login') }
 
   return (
     <header className="bg-slate-900/95 backdrop-blur border-b border-slate-700/60 sticky top-0 z-50">
@@ -45,6 +52,37 @@ export default function Header() {
             </Link>
           ))}
         </nav>
+
+        {/* Auth */}
+        <div className="flex items-center gap-2">
+          {user ? (
+            <>
+              <div className="hidden sm:flex items-center gap-1.5 text-sm text-slate-300">
+                <UserCircleIcon className="w-5 h-5 text-amber-400" />
+                <span className="max-w-[120px] truncate">{user.name}</span>
+                {user.role === 'admin' && (
+                  <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">admin</span>
+                )}
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                Entrar
+              </Link>
+              <Link to="/register" className="px-3 py-2 rounded-md text-sm bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold transition">
+                Cadastrar
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </header>
   )
