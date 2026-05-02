@@ -1,6 +1,11 @@
 """
 PSI Index — Índice de Favorabilidade Exploratória Mineral
 Pipeline baseado em: GeoProspecting_Ouro_Pipeline.ipynb
+
+Dados geofísicos obtidos de fontes reais quando disponíveis:
+  - CPRM GeoServer WCS  (magnética + radiométrica K/U/Th, Brasil)
+  - ICGEM/EGM2008 API   (anomalia de gravidade, global)
+  - Fallback determinístico por bbox quando APIs indisponíveis
 """
 
 import uuid
@@ -10,6 +15,8 @@ import numpy as np
 from scipy.ndimage import gaussian_filter, label, maximum_filter
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import RobustScaler
+
+from app.services.real_data_fetcher import fetch_layers
 
 
 # ── Pesos do PSI Index por commodity ─────────────────────────────────────────
@@ -37,61 +44,6 @@ WEIGHTS: dict[str, dict[str, float]] = {
         "GRAV": 0.25,
     },
 }
-
-
-def _generate_synthetic_data(
-    nx: int,
-    ny: int,
-    seed: int = 42,
-) -> dict[str, np.ndarray]:
-    """Gera dados geofísicos sintéticos com assinaturas de sistemas auríferos."""
-    rng = np.random.default_rng(seed)
-    LON_norm, LAT_norm = np.meshgrid(
-        np.linspace(0, 1, ny), np.linspace(0, 1, nx)
-    )
-
-    def _gauss_blob(cx, cy, sx, sy, amp):
-        return amp * np.exp(
-            -((LON_norm - cx) ** 2 / (2 * sx**2) + (LAT_norm - cy) ** 2 / (2 * sy**2))
-        )
-
-    # K — elevado nas zonas de alteração
-    K = (
-        rng.normal(0.3, 0.1, (nx, ny))
-        + _gauss_blob(0.28, 0.62, 0.10, 0.10, 1.4)
-        + _gauss_blob(0.70, 0.32, 0.08, 0.08, 1.1)
-    )
-
-    # U
-    U = (
-        rng.normal(0.25, 0.08, (nx, ny))
-        + _gauss_blob(0.28, 0.62, 0.12, 0.09, 0.9)
-        + _gauss_blob(0.70, 0.32, 0.07, 0.07, 0.7)
-    )
-
-    # Th — mais disperso
-    Th = rng.normal(0.35, 0.12, (nx, ny)) + _gauss_blob(0.50, 0.55, 0.15, 0.13, 0.5)
-
-    # MAG — gradientes nas bordas de intrusivos
-    MAG = (
-        rng.normal(0.5, 0.15, (nx, ny))
-        + _gauss_blob(0.28, 0.62, 0.09, 0.09, 1.5)
-        + _gauss_blob(0.70, 0.32, 0.07, 0.07, 1.2)
-    )
-
-    # GRAV
-    GRAV = (
-        rng.normal(0.4, 0.12, (nx, ny))
-        + _gauss_blob(0.35, 0.40, 0.12, 0.10, 0.8)
-        + _gauss_blob(0.65, 0.55, 0.08, 0.08, 0.6)
-    )
-
-    # Smooth
-    layers = {}
-    for name, arr in {"K": K, "U": U, "Th": Th, "MAG": MAG, "GRAV": GRAV}.items():
-        layers[name] = gaussian_filter(arr, sigma=2.0)
-
-    return layers
 
 
 def _normalize_layers(layers: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -240,8 +192,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     LON, LAT = np.meshgrid(lons_1d, lats_1d)
     nx, ny = LON.shape
 
-    # Generate/load data (synthetic)
-    layers = _generate_synthetic_data(nx, ny)
+    # Fetch real data (with fallback to deterministic synthetic)
+    layers, data_type = fetch_layers(bbox, nx, ny)
 
     # Normalize
     normalized = _normalize_layers(layers)
@@ -282,7 +234,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "jobId": str(uuid.uuid4()),
         "commodity": commodity,
-        "dataType": "Sintético",
+        "dataType": data_type,
         "bbox": bbox,
         "targets": ranked_targets,
         "layers": layer_summary,
