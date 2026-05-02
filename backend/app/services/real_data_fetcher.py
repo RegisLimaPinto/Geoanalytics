@@ -58,7 +58,7 @@ CPRM_LAYER_CANDIDATES: dict[str, list[str]] = {
 # ─── ICGEM Gravity API (GFZ Potsdam) ─────────────────────────────────────────
 ICGEM_API = "https://icgem.gfz-potsdam.de/calcgrid"
 
-HTTP_TIMEOUT = 25  # segundos
+HTTP_TIMEOUT = 8  # segundos (reduzido para evitar travamentos)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -123,18 +123,26 @@ def _fetch_cprm_layer(layer: str, bbox: dict, nx: int, ny: int) -> Optional[np.n
                 arr = ds.read(1)
                 arr = _safe_nodata_fill(arr, ds.nodata)
         return _resample(arr, nx, ny)
+    except httpx.TimeoutException:
+        raise  # propaga para _try_cprm_key fazer early-exit
     except Exception as exc:
         logger.debug("CPRM WCS %s → %s", layer, exc)
         return None
 
 
 def _try_cprm_key(key: str, bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
-    """Tenta todas as camadas candidatas para uma chave (MAG, K, U, Th)."""
+    """Tenta todas as camadas candidatas para uma chave (MAG, K, U, Th).
+    Se uma requisição demorar (timeout), pula o restante dos candidatos — o servidor está lento.
+    """
     for candidate in CPRM_LAYER_CANDIDATES.get(key, []):
-        result = _fetch_cprm_layer(candidate, bbox, nx, ny)
-        if result is not None:
-            logger.info("CPRM %s: camada '%s' OK", key, candidate)
-            return result
+        try:
+            result = _fetch_cprm_layer(candidate, bbox, nx, ny)
+            if result is not None:
+                logger.info("CPRM %s: camada '%s' OK", key, candidate)
+                return result
+        except httpx.TimeoutException:
+            logger.debug("CPRM %s timeout — pulando candidatos restantes", key)
+            return None  # servidor lento: não tenta os outros candidatos
     return None
 
 
@@ -265,39 +273,47 @@ def fetch_layers(
     """
     Retorna (layers_dict, data_type_label).
 
-    Tenta fontes reais nesta ordem:
-      1. CPRM WCS para MAG, K, U, Th
-      2. ICGEM API para GRAV
+    Busca CPRM (MAG/K/U/Th) e ICGEM (GRAV) em paralelo via ThreadPoolExecutor.
     Camadas que falharem são preenchidas com sintético determinístico.
-
-    Parameters
-    ----------
-    bbox : dict  com lonMin, latMin, lonMax, latMax
-    nx   : linhas do grid (latitude)
-    ny   : colunas do grid (longitude)
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     seed = _bbox_seed(bbox)
     synthetic = _synthetic_layers(nx, ny, seed)
     layers: dict[str, np.ndarray] = {}
     sources_used: list[str] = []
 
-    # 1 — CPRM (MAG, K, U, Th)
-    for key in ("MAG", "K", "U", "Th"):
-        result = _try_cprm_key(key, bbox, nx, ny)
-        if result is not None:
-            layers[key] = result
-            if "CPRM" not in sources_used:
-                sources_used.append("CPRM")
-        else:
-            layers[key] = synthetic[key]
+    def _fetch_key(key: str) -> tuple[str, Optional[np.ndarray]]:
+        return key, _try_cprm_key(key, bbox, nx, ny)
 
-    # 2 — ICGEM (GRAV)
-    grav = _fetch_icgem_gravity(bbox, nx, ny)
-    if grav is not None:
-        layers["GRAV"] = grav
-        sources_used.append("ICGEM/EGM2008")
-    else:
-        layers["GRAV"] = synthetic["GRAV"]
+    def _fetch_grav() -> tuple[str, Optional[np.ndarray]]:
+        return "GRAV", _fetch_icgem_gravity(bbox, nx, ny)
+
+    # Fetch all 5 fontes em paralelo
+    tasks = {"MAG": _fetch_key, "K": _fetch_key, "U": _fetch_key, "Th": _fetch_key}
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(fn, key): key for key, fn in tasks.items()}
+        futures[pool.submit(_fetch_grav)] = "GRAV"
+
+        for future in as_completed(futures, timeout=HTTP_TIMEOUT + 2):
+            try:
+                key, result = future.result()
+                if result is not None:
+                    layers[key] = result
+                    source = "CPRM" if key != "GRAV" else "ICGEM/EGM2008"
+                    if source not in sources_used:
+                        sources_used.append(source)
+                else:
+                    layers[key] = synthetic[key]
+            except Exception as exc:
+                key = futures[future]
+                logger.debug("fetch_layers %s → %s", key, exc)
+                layers[key] = synthetic[key]
+
+    # Garante que todas as camadas estão presentes
+    for key in ("MAG", "K", "U", "Th", "GRAV"):
+        if key not in layers:
+            layers[key] = synthetic[key]
 
     if sources_used:
         data_type = "Real (" + " + ".join(sources_used) + ")"
