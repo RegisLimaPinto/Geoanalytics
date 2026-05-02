@@ -58,7 +58,10 @@ CPRM_LAYER_CANDIDATES: dict[str, list[str]] = {
 # ─── ICGEM Gravity API (GFZ Potsdam) ─────────────────────────────────────────
 ICGEM_API = "https://icgem.gfz-potsdam.de/calcgrid"
 
-HTTP_TIMEOUT = 8  # segundos (reduzido para evitar travamentos)
+HTTP_TIMEOUT = 3  # segundos — fallback sintético se não responder em 3s
+
+# Cache em memória: bbox_hash → (layers, data_type)  (TTL: processo vivo)
+_FETCH_CACHE: dict[str, tuple[dict, str]] = {}
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -275,10 +278,15 @@ def fetch_layers(
 
     Busca CPRM (MAG/K/U/Th) e ICGEM (GRAV) em paralelo via ThreadPoolExecutor.
     Camadas que falharem são preenchidas com sintético determinístico.
+    Resultados são cacheados em memória por bbox (hash).
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     seed = _bbox_seed(bbox)
+    cache_key = f"{seed}|{nx}|{ny}"
+    if cache_key in _FETCH_CACHE:
+        logger.info("fetch_layers: cache hit para bbox %s", cache_key)
+        return _FETCH_CACHE[cache_key]
     synthetic = _synthetic_layers(nx, ny, seed)
     layers: dict[str, np.ndarray] = {}
     sources_used: list[str] = []
@@ -295,7 +303,7 @@ def fetch_layers(
         futures = {pool.submit(fn, key): key for key, fn in tasks.items()}
         futures[pool.submit(_fetch_grav)] = "GRAV"
 
-        for future in as_completed(futures, timeout=HTTP_TIMEOUT + 2):
+        for future in as_completed(futures, timeout=HTTP_TIMEOUT + 1):
             try:
                 key, result = future.result()
                 if result is not None:
@@ -318,6 +326,8 @@ def fetch_layers(
     if sources_used:
         data_type = "Real (" + " + ".join(sources_used) + ")"
     else:
-        data_type = "Sintético (determinístico)"
+        data_type = "Sintetico (deterministico)"
 
-    return layers, data_type
+    result = (layers, data_type)
+    _FETCH_CACHE[cache_key] = result
+    return result
