@@ -1,9 +1,13 @@
 import {
   ArrowDownTrayIcon,
   ArrowLeftIcon,
+  BeakerIcon,
   CheckCircleIcon,
+  CloudArrowUpIcon,
+  FlagIcon,
   MapPinIcon,
   TrophyIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -330,19 +334,64 @@ export default function Results() {
           </div>
 
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">Proximos Passos Recomendados</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <FlagIcon className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-semibold text-white">Proximos Passos Recomendados</h2>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { n: 1, title: 'Validacao de Campo', desc: `Mapeamento geologico nas zonas ${topTarget.id !== '-' ? topTarget.id : ''} e adjacentes.` },
-                { n: 2, title: 'Geoquimica', desc: 'Amostragem de solo/rocha nos subalvos top-ranked para deteccao de anomalias.' },
-                { n: 3, title: 'Dados Reais', desc: data.dataType?.toLowerCase().includes('sint') ? 'Substitua dados sinteticos por GeoTIFFs reais.' : `Dados ${data.dataType} aplicados.` },
-                { n: 4, title: 'Sondagem', desc: 'Planejar sondagem com base nas zonas prioritarias confirmadas em campo.' },
-              ].map(({ n, title, desc }) => (
-                <div key={n} className="flex gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-700">
-                  <span className="flex-shrink-0 w-6 h-6 bg-amber-500/15 text-amber-400 text-xs font-bold rounded-full border border-amber-500/30 flex items-center justify-center mt-0.5">{n}</span>
+                {
+                  n: 1,
+                  Icon: MapPinIcon,
+                  color: 'text-emerald-400',
+                  bg: 'bg-emerald-500/10 border-emerald-500/30',
+                  title: 'Validacao de Campo',
+                  desc: `Mapeamento geologico nas zonas ${topTarget.id !== '-' ? topTarget.id : 'prioritarias'} e adjacentes.`,
+                  tag: 'Campo',
+                },
+                {
+                  n: 2,
+                  Icon: BeakerIcon,
+                  color: 'text-blue-400',
+                  bg: 'bg-blue-500/10 border-blue-500/30',
+                  title: 'Geoquimica',
+                  desc: `Amostragem de solo/rocha nos ${data.subtargets?.length ?? 0} subalvos top-ranked para deteccao de anomalias.`,
+                  tag: 'Lab',
+                },
+                {
+                  n: 3,
+                  Icon: CloudArrowUpIcon,
+                  color: data.dataType?.toLowerCase().includes('sint') ? 'text-amber-400' : 'text-emerald-400',
+                  bg: data.dataType?.toLowerCase().includes('sint') ? 'bg-amber-500/10 border-amber-500/30' : 'bg-emerald-500/10 border-emerald-500/30',
+                  title: 'Dados Reais',
+                  desc: data.dataType?.toLowerCase().includes('sint')
+                    ? 'Substitua dados sinteticos por GeoTIFFs reais do CPRM/INPE.'
+                    : `Dados ${data.dataType} ja aplicados nesta analise.`,
+                  tag: data.dataType?.toLowerCase().includes('sint') ? 'Pendente' : 'Concluido',
+                },
+                {
+                  n: 4,
+                  Icon: WrenchScrewdriverIcon,
+                  color: 'text-orange-400',
+                  bg: 'bg-orange-500/10 border-orange-500/30',
+                  title: 'Sondagem',
+                  desc: `Planejar sondagem com base nas ${data.zones?.filter(z => z.Classe === 'Alta').length ?? 0} zonas de Alta prioridade confirmadas em campo.`,
+                  tag: 'Fase 2',
+                },
+              ].map(({ n, Icon, color, bg, title, desc, tag }) => (
+                <div key={n} className="flex flex-col gap-3 p-4 bg-slate-700/30 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className={`w-9 h-9 rounded-lg border ${bg} flex items-center justify-center flex-shrink-0`}>
+                      <Icon className={`w-4 h-4 ${color}`} />
+                    </div>
+                    <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${bg} ${color}`}>{tag}</span>
+                  </div>
                   <div>
-                    <div className="text-sm font-medium text-white mb-0.5">{title}</div>
-                    <div className="text-xs text-slate-400 leading-relaxed">{desc}</div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs font-bold text-slate-600">0{n}</span>
+                      <span className="text-sm font-semibold text-white">{title}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
