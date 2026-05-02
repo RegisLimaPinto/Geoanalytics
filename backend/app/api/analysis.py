@@ -47,6 +47,8 @@ from app.services.psi_index import run_pipeline
 
 router = APIRouter()
 
+import os
+
 # In-memory job store (replace with Redis/DB in production)
 _jobs: dict[str, dict[str, Any]] = {}
 
@@ -56,8 +58,31 @@ _job_pdfs: dict[str, bytes] = {}
 # Raw data for lazy PDF generation (numpy arrays + DataFrames)
 _job_pdf_raw: dict[str, dict] = {}
 
-# Map assets per job: {"png": bytes, "html": bytes}
+# Map assets per job: in-memory cache; fonte primaria e disco em _MAPS_DIR
 _job_maps: dict[str, dict[str, bytes]] = {}
+
+# Diretorio persistente para PNG e HTML dos mapas
+_MAPS_DIR = "/app/maps"
+os.makedirs(_MAPS_DIR, exist_ok=True)
+
+
+def _save_map(job_id: str, ext: str, data: bytes) -> None:
+    """Salva bytes em disco (sobrevive a restarts do container)."""
+    try:
+        with open(os.path.join(_MAPS_DIR, f"{job_id}.{ext}"), "wb") as f:
+            f.write(data)
+    except Exception:
+        pass  # fallback gracioso — ainda disponivel em memoria
+
+
+def _load_map(job_id: str, ext: str) -> bytes:
+    """Tenta carregar do disco se nao estiver em memoria."""
+    path = os.path.join(_MAPS_DIR, f"{job_id}.{ext}")
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        return b""
 
 # Uploaded layers keyed by session token hash → {internal_key: np.ndarray}
 # Stored as lists (serializable for JSON) only after analysis starts
@@ -183,6 +208,10 @@ async def run_analysis(
     map_3d = result.pop("_map_3d", b"")
     if map_png or map_3d:
         _job_maps[job_id] = {"png": map_png, "html": map_3d}
+        if map_png:
+            _save_map(job_id, "png", map_png)
+        if map_3d:
+            _save_map(job_id, "html", map_3d)
 
     _jobs[job_id] = result
 
@@ -316,8 +345,7 @@ async def list_jobs(current_user: User = Depends(get_current_user)):
 @router.get("/{job_id}/map/favorability")
 async def map_favorability(job_id: str):
     """Retorna o PNG do mapa 2D de favorabilidade. O UUID do job e suficiente para acesso."""
-    maps = _job_maps.get(job_id, {})
-    png = maps.get("png", b"")
+    png = _job_maps.get(job_id, {}).get("png", b"") or _load_map(job_id, "png")
     if not png:
         raise HTTPException(status_code=404, detail="Mapa PNG nao disponivel")
     return Response(content=png, media_type="image/png")
@@ -326,8 +354,7 @@ async def map_favorability(job_id: str):
 @router.get("/{job_id}/map/3d")
 async def map_3d(job_id: str):
     """Retorna o HTML interativo da superficie 3D. O UUID do job e suficiente para acesso."""
-    maps = _job_maps.get(job_id, {})
-    html = maps.get("html", b"")
+    html = _job_maps.get(job_id, {}).get("html", b"") or _load_map(job_id, "html")
     if not html:
         raise HTTPException(status_code=404, detail="Mapa 3D nao disponivel")
     return Response(content=html, media_type="text/html")
