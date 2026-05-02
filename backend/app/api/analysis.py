@@ -20,8 +20,11 @@ router = APIRouter()
 # In-memory job store (replace with Redis/DB in production)
 _jobs: dict[str, dict[str, Any]] = {}
 
-# PDF bytes per job (stored separately to avoid JSON serialization)
+# PDF bytes per job (cached after first generation)
 _job_pdfs: dict[str, bytes] = {}
+
+# Raw data for lazy PDF generation (numpy arrays + DataFrames)
+_job_pdf_raw: dict[str, dict] = {}
 
 # Uploaded layers keyed by session token hash → {internal_key: np.ndarray}
 # Stored as lists (serializable for JSON) only after analysis starts
@@ -137,11 +140,12 @@ async def run_analysis(
 
     job_id = result["jobId"]
 
-    # Store PDF bytes separately (not in JSON response)
-    pdf_bytes = result.pop("_pdf", None)
+    # Guardar dados para PDF lazy (não serializa numpy/DataFrame no JSON)
+    pdf_raw = result.pop("_pdf_raw", None)
+    if pdf_raw:
+        _job_pdf_raw[job_id] = pdf_raw
+
     _jobs[job_id] = result
-    if pdf_bytes:
-        _job_pdfs[job_id] = pdf_bytes
 
     return {"job_id": job_id, "status": "completed"}
 
@@ -163,12 +167,34 @@ async def download_report(
     job_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Retorna o relatório PDF técnico gerado para o job."""
+    """Gera e retorna o PDF técnico do job (geração lazy — só quando solicitado)."""
     if job_id not in _jobs:
         raise HTTPException(status_code=404, detail="Job não encontrado")
-    pdf_bytes = _job_pdfs.get(job_id)
-    if not pdf_bytes:
-        raise HTTPException(status_code=404, detail="PDF não disponível para este job")
+
+    # Retorna PDF em cache se já gerado
+    if job_id in _job_pdfs:
+        pdf_bytes = _job_pdfs[job_id]
+    else:
+        raw = _job_pdf_raw.get(job_id)
+        if not raw:
+            raise HTTPException(status_code=404, detail="Dados para PDF não disponíveis")
+        from app.services.output_pipeline import generate_pdf_report
+        job_data = _jobs[job_id]
+        pdf_bytes = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: generate_pdf_report(
+                score_grid=raw["psi_grid"],
+                layers=raw["layers"],
+                config=raw["config"],
+                zones_df=raw["zones_df"],
+                subtargets_df=raw["subtargets_df"],
+                target_stats_df=raw["target_stats_df"],
+                title="Relatório Técnico GeoAnalytics — Favorabilidade Exploratória",
+                synthetic="sint" in raw["config"].get("dataType", "").lower(),
+            ),
+        )
+        _job_pdfs[job_id] = pdf_bytes  # cache
+
     commodity = _jobs[job_id].get("commodity", "GEO")
     date_str = _jobs[job_id].get("createdAt", "")[:10]
     filename = f"GeoAnalytics_{commodity}_{date_str}.pdf"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import TargetConfig from '../components/Analysis/TargetConfig'
 import GeoMap from '../components/Map/GeoMap'
@@ -12,12 +12,98 @@ const DEFAULT_CONFIG = {
   targets: [],
 }
 
+const STEPS = [
+  { label: 'Conectando às fontes de dados', detail: 'CPRM · ICGEM EGM2008', duration: 8000 },
+  { label: 'Normalizando camadas geofísicas', detail: 'RobustScaler · Gaussian σ=1.5', duration: 3000 },
+  { label: 'Computando PSI Index', detail: 'Pesos OURO · Gradiente K · Bônus desacoplamento', duration: 3000 },
+  { label: 'GeoPSI v4.0 — ajuste estatístico', detail: 'Shielding · Campo latente · Gradiente', duration: 2000 },
+  { label: 'Detectando zonas prioritárias', detail: 'Contiguous high-favorability zones', duration: 2000 },
+  { label: 'Gerando subalvos e análise radial', detail: 'Local maxima · P90 · Consistência', duration: 2000 },
+]
+
+function LoadingOverlay({ step }) {
+  return (
+    <div className="absolute inset-0 z-20 bg-slate-900/92 backdrop-blur-sm flex items-center justify-center">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+            <svg className="w-5 h-5 text-amber-400 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3"/>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">Pipeline GeoProspecting</p>
+            <p className="text-slate-500 text-xs">Análise em andamento…</p>
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="space-y-3">
+          {STEPS.map((s, i) => {
+            const done = i < step
+            const active = i === step
+            return (
+              <div key={i} className={`flex items-start gap-3 transition-opacity duration-300 ${i > step ? 'opacity-30' : 'opacity-100'}`}>
+                <div className={`mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-300
+                  ${done ? 'bg-emerald-500' : active ? 'bg-amber-500 ring-2 ring-amber-500/30' : 'bg-slate-700'}`}>
+                  {done && (
+                    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                      <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                  {active && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"/>}
+                </div>
+                <div>
+                  <p className={`text-xs font-medium ${active ? 'text-white' : done ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {s.label}
+                  </p>
+                  {active && (
+                    <p className="text-xs text-slate-500 mt-0.5">{s.detail}</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-6 h-1 bg-slate-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${Math.round(((step + 1) / STEPS.length) * 100)}%` }}
+          />
+        </div>
+        <p className="text-right text-xs text-slate-600 mt-1">
+          {Math.round(((step + 1) / STEPS.length) * 100)}%
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function Analysis() {
   const [config, setConfig] = useState(DEFAULT_CONFIG)
   const [loading, setLoading] = useState(false)
+  const [loadStep, setLoadStep] = useState(0)
   const [noCredits, setNoCredits] = useState(false)
   const navigate = useNavigate()
   const { token } = useAuth()
+
+  // Avança os steps de loading simulando o progresso real
+  useEffect(() => {
+    if (!loading) { setLoadStep(0); return }
+    let current = 0
+    setLoadStep(0)
+    const timers = []
+    let elapsed = 0
+    STEPS.forEach((s, i) => {
+      elapsed += s.duration
+      timers.push(setTimeout(() => setLoadStep(i + 1), elapsed))
+    })
+    return () => timers.forEach(clearTimeout)
+  }, [loading])
 
   async function handleRunAnalysis() {
     setLoading(true)
@@ -55,6 +141,9 @@ export default function Analysis() {
       {/* Mapa principal */}
       <div className="flex-1 relative">
         <GeoMap bbox={config.bbox} targets={config.targets} radiusKm={config.radiusKm} />
+
+        {/* Overlay de loading profissional */}
+        {loading && <LoadingOverlay step={Math.min(loadStep, STEPS.length - 1)} />}
 
         {/* Banner créditos insuficientes */}
         {noCredits && (

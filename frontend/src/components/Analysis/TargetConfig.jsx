@@ -182,17 +182,17 @@ export default function TargetConfig({ config, onChange, onRun, loading, token }
       <button
         onClick={onRun}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-slate-900 font-semibold py-3 rounded-lg transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed text-slate-900 font-bold py-3 rounded-lg transition-all shadow-lg shadow-amber-500/20"
       >
         {loading ? (
           <>
             <span className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-            Processando análise…
+            Analisando…
           </>
         ) : (
           <>
             <PlayIcon className="w-4 h-4" />
-            Executar Análise
+            Iniciar Análise
           </>
         )}
       </button>

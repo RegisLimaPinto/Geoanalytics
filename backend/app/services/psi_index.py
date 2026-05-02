@@ -354,11 +354,12 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     job_id = str(uuid.uuid4())
 
-    # Gera zonas, subalvos e PDF via output_pipeline
+    # Gera zonas, subalvos via output_pipeline (PDF gerado lazy em /report)
+    pipeline_config = {**config, "bbox": bbox, "commodity": commodity, "dataType": data_type}
     output = run_full_output_pipeline(
         psi_grid=psi,
         normalized_layers={k: v for k, v in smoothed.items() if k != "GRAD"},
-        config={**config, "bbox": bbox, "commodity": commodity, "dataType": data_type},
+        config=pipeline_config,
     )
 
     return {
@@ -374,6 +375,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "zones": output["zones"],
         "subtargets": output["subtargets"],
         "targetStats": output["targetStats"],
-        "_pdf": output["pdfBytes"],   # bytes — não serializado no JSON
+        # dados para geração lazy do PDF (não serializado no JSON)
+        "_pdf_raw": {**output["_pdf_raw"], "config": pipeline_config},
         "createdAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }

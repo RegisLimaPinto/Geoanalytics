@@ -511,18 +511,6 @@ def run_full_output_pipeline(
         radius_km=min(radius_km, 10),
     )
 
-    pdf_bytes = generate_pdf_report(
-        score_grid=psi_grid,
-        layers=normalized_layers,
-        config=config,
-        zones_df=zones_df,
-        subtargets_df=subtargets_df,
-        target_stats_df=target_stats_df,
-        title="Relatório Técnico GeoAnalytics — Favorabilidade Exploratória",
-        synthetic="sintético" in config.get("dataType", "").lower()
-            or config.get("dataType", "Sintético") == "Sintético",
-    )
-
     # Serializar para JSON-safe
     def df_to_records(df):
         return df.to_dict(orient="records") if not df.empty else []
@@ -531,5 +519,13 @@ def run_full_output_pipeline(
         "zones": df_to_records(zones_df),
         "subtargets": df_to_records(subtargets_df),
         "targetStats": df_to_records(target_stats_df),
-        "pdfBytes": pdf_bytes,
+        # PDF gerado sob demanda em /report (não durante a análise)
+        "pdfBytes": None,
+        "_pdf_raw": {
+            "psi_grid": psi_grid,
+            "layers": normalized_layers,
+            "zones_df": zones_df,
+            "subtargets_df": subtargets_df,
+            "target_stats_df": target_stats_df,
+        },
     }
