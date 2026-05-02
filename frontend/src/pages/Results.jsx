@@ -78,6 +78,7 @@ export default function Results() {
   const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
   const [mapError, setMapError] = useState(false)
+  const [mapUrl, setMapUrl] = useState(null)
   const { token } = useAuth()
 
   const handleExportPDF = async () => {
@@ -101,6 +102,18 @@ export default function Results() {
       setExporting(false)
     }
   }
+
+  useEffect(() => {
+    if (activeTab !== 1 || !data || data.jobId === 'demo-synthetic' || data._expired) return
+    setMapUrl(null)
+    setMapError(false)
+    fetch(`/api/analysis/${data.jobId}/map/favorability`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.blob() })
+      .then(blob => setMapUrl(URL.createObjectURL(blob)))
+      .catch(() => setMapError(true))
+  }, [activeTab, data, token])
 
   useEffect(() => {
     const jobId = params.get('job_id')
@@ -376,9 +389,13 @@ export default function Results() {
             </div>
           ) : mapError ? (
             <div className="p-12 text-center text-slate-500"><p>Mapa PNG nao disponivel para este job.</p></div>
+          ) : mapUrl ? (
+            <img src={mapUrl} alt="Mapa de favorabilidade" className="w-full" style={{ background: '#0f172a' }} />
           ) : (
-            <img src={`/api/analysis/${jobId}/map/favorability`} alt="Mapa de favorabilidade"
-              className="w-full" onError={() => setMapError(true)} style={{ background: '#0f172a' }} />
+            <div className="p-12 text-center text-slate-500">
+              <div className="w-6 h-6 border-2 border-slate-700 border-t-amber-400 rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-sm">Carregando mapa...</p>
+            </div>
           )}
         </div>
       )}
