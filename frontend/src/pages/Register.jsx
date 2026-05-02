@@ -82,6 +82,7 @@ export default function Register() {
             <input
               type="password"
               required
+              autoComplete="new-password"
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               className="w-full bg-slate-900/60 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
@@ -94,6 +95,7 @@ export default function Register() {
             <input
               type="password"
               required
+              autoComplete="new-password"
               value={form.confirm}
               onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
               className="w-full bg-slate-900/60 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
