@@ -14,9 +14,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 # ── Schemas ──────────────────────────────────────────────────────────────────
 
 class RegisterIn(BaseModel):
-    name: str
+    name: str = Field(min_length=2, max_length=120)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserOut(BaseModel):

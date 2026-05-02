@@ -59,7 +59,11 @@ async def run_analysis(
 
 
 @router.get("/{job_id}/results", response_model=AnalysisResult)
-async def get_results(job_id: str):
+async def get_results(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Retorna os resultados de uma análise pelo job_id."""
     if job_id not in _jobs:
         raise HTTPException(status_code=404, detail="Job não encontrado")
@@ -67,7 +71,7 @@ async def get_results(job_id: str):
 
 
 @router.get("/jobs", response_model=list[dict])
-async def list_jobs():
+async def list_jobs(current_user: User = Depends(get_current_user)):
     """Lista os jobs de análise disponíveis."""
     return [
         {"job_id": k, "commodity": v.get("commodity"), "createdAt": v.get("createdAt")}
