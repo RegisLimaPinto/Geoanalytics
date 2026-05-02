@@ -314,30 +314,20 @@ async def list_jobs(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/{job_id}/map/favorability")
-async def map_favorability(
-    job_id: str,
-    current_user: User = Depends(_get_user_token_or_query),
-):
-    """Retorna o PNG do mapa 2D de favorabilidade com contornos."""
-    if job_id not in _jobs:
-        raise HTTPException(status_code=404, detail="Job não encontrado")
+async def map_favorability(job_id: str):
+    """Retorna o PNG do mapa 2D de favorabilidade. O UUID do job e suficiente para acesso."""
     maps = _job_maps.get(job_id, {})
     png = maps.get("png", b"")
     if not png:
-        raise HTTPException(status_code=404, detail="Mapa PNG não disponível")
+        raise HTTPException(status_code=404, detail="Mapa PNG nao disponivel")
     return Response(content=png, media_type="image/png")
 
 
 @router.get("/{job_id}/map/3d")
-async def map_3d(
-    job_id: str,
-    current_user: User = Depends(_get_user_token_or_query),
-):
-    """Retorna o HTML interativo da superfície 3D (Plotly CDN)."""
-    if job_id not in _jobs:
-        raise HTTPException(status_code=404, detail="Job não encontrado")
+async def map_3d(job_id: str):
+    """Retorna o HTML interativo da superficie 3D. O UUID do job e suficiente para acesso."""
     maps = _job_maps.get(job_id, {})
     html = maps.get("html", b"")
     if not html:
-        raise HTTPException(status_code=404, detail="Mapa 3D não disponível")
+        raise HTTPException(status_code=404, detail="Mapa 3D nao disponivel")
     return Response(content=html, media_type="text/html")
