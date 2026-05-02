@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import analysis, auth, geo
+from app.api import analysis, auth, geo, payments
 from app.database import engine
+from app.models.payment import Payment, UserCredits  # noqa: F401 — ensure tables created
 from app.models.user import Base
 
 # Cria as tabelas automaticamente na inicialização
@@ -30,6 +31,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(geo.router, prefix="/api/geo", tags=["Geo"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 
 
 @app.get("/api/health")

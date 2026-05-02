@@ -4,6 +4,9 @@ import Header from './components/Layout/Header'
 import Analysis from './pages/Analysis'
 import Home from './pages/Home'
 import Login from './pages/Login'
+import PaymentFailure from './pages/PaymentFailure'
+import PaymentSuccess from './pages/PaymentSuccess'
+import Pricing from './pages/Pricing'
 import Register from './pages/Register'
 import Results from './pages/Results'
 
@@ -23,10 +26,14 @@ export default function App() {
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
               <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
+              <Route path="/payment/failure" element={<PaymentFailure />} />
+              <Route path="/payment/pending" element={<PaymentFailure />} />
             </Routes>
           </main>
         </div>

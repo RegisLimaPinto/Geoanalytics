@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 
 const NAV = [
   { to: '/', label: 'Início', Icon: MapIcon },
+  { to: '/pricing', label: 'Preços', Icon: null },
   { to: '/analysis', label: 'Análise', Icon: BeakerIcon },
   { to: '/results', label: 'Resultados', Icon: ChartBarIcon },
 ]
@@ -47,7 +48,7 @@ export default function Header() {
                   : 'text-slate-400 hover:text-white hover:bg-slate-800'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              {Icon && <Icon className="w-4 h-4" />}
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
