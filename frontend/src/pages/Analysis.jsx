@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { CursorArrowRaysIcon, MapPinIcon, Square2StackIcon } from '@heroicons/react/24/outline'
 import TargetConfig from '../components/Analysis/TargetConfig'
 import GeoMap from '../components/Map/GeoMap'
 import { useAuth } from '../context/AuthContext'
@@ -88,8 +89,22 @@ export default function Analysis() {
   const [loading, setLoading] = useState(false)
   const [loadStep, setLoadStep] = useState(0)
   const [noCredits, setNoCredits] = useState(false)
+  const [mapMode, setMapMode] = useState('view')
   const navigate = useNavigate()
   const { token } = useAuth()
+
+  function handleBboxChange(bbox) {
+    setConfig(c => ({ ...c, bbox }))
+    setMapMode('view')
+  }
+
+  function handleTargetAdd({ lon, lat }) {
+    setConfig(c => {
+      const newId = `T${c.targets.length + 1}`
+      return { ...c, targets: [...c.targets, { id: newId, lon, lat }] }
+    })
+    setMapMode('view')
+  }
 
   // Avança os steps de loading simulando o progresso real
   useEffect(() => {
@@ -140,7 +155,54 @@ export default function Analysis() {
 
       {/* Mapa principal */}
       <div className="flex-1 relative">
-        <GeoMap bbox={config.bbox} targets={config.targets} radiusKm={config.radiusKm} />
+
+        {/* Toolbar de ferramentas do mapa */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg">
+          {[
+            { id: 'view', icon: CursorArrowRaysIcon, label: 'Mover' },
+            { id: 'draw-bbox', icon: Square2StackIcon, label: 'Desenhar Area' },
+            { id: 'add-target', icon: MapPinIcon, label: 'Adicionar Ponto' },
+          ].map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setMapMode(id)}
+              title={label}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                mapMode === id
+                  ? id === 'draw-bbox'
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                    : id === 'add-target'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'bg-slate-700 text-white border border-slate-600'
+                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Instrucao contextual */}
+        {mapMode === 'draw-bbox' && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-cyan-900/90 border border-cyan-500/40 text-cyan-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur">
+            Clique no 1o canto da area, depois no 2o canto
+          </div>
+        )}
+        {mapMode === 'add-target' && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-amber-900/90 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur">
+            Clique no mapa para adicionar um ponto de interesse
+          </div>
+        )}
+
+        <GeoMap
+          bbox={config.bbox}
+          targets={config.targets}
+          radiusKm={config.radiusKm}
+          mode={mapMode}
+          onBboxChange={handleBboxChange}
+          onTargetAdd={handleTargetAdd}
+        />
 
         {/* Overlay de loading profissional */}
         {loading && <LoadingOverlay step={Math.min(loadStep, STEPS.length - 1)} />}
