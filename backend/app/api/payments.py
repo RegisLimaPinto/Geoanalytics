@@ -248,7 +248,8 @@ async def mp_webhook(request: Request, db: Session = Depends(get_db)):
     topic = data.get("type") or data.get("topic")
 
     # ── assinatura ────────────────────────────────────────────
-    if topic == "preapproval":
+    # MP pode enviar "preapproval" ou "subscription_preapproval"
+    if topic in ("preapproval", "subscription_preapproval"):
         preapproval_id = str(data.get("data", {}).get("id") or data.get("id") or "")
         if not preapproval_id:
             return {"status": "no_id"}
