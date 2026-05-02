@@ -5,8 +5,6 @@ import {
     MapPinIcon,
     TrophyIcon,
 } from '@heroicons/react/24/outline'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { KUThBars, LayerRadar, PSIBars } from '../components/Charts/GeoCharts'
@@ -75,30 +73,22 @@ export default function Results() {
   const { token } = useAuth()
 
   const handleExportPDF = async () => {
-    if (!reportRef.current || exporting) return
+    if (!data?.jobId || data.jobId === 'demo-synthetic' || exporting) return
     setExporting(true)
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0f172a',
-        logging: false,
+      const res = await fetch(`/api/analysis/${data.jobId}/report`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const pageW = pdf.internal.pageSize.getWidth()
-      const pageH = pdf.internal.pageSize.getHeight()
-      const imgH = (canvas.height * pageW) / canvas.width
-      let yPos = 0
-      let remaining = imgH
-      while (remaining > 0) {
-        pdf.addImage(imgData, 'PNG', 0, -yPos, pageW, imgH)
-        remaining -= pageH
-        yPos += pageH
-        if (remaining > 0) pdf.addPage()
-      }
-      const filename = `GeoAnalytics_${data.commodity}_${new Date().toISOString().slice(0, 10)}.pdf`
-      pdf.save(filename)
+      if (!res.ok) throw new Error(res.status)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `GeoAnalytics_${data.commodity}_${new Date().toISOString().slice(0, 10)}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('PDF não disponível para dados de demonstração. Execute uma análise real.')
     } finally {
       setExporting(false)
     }
@@ -343,6 +333,43 @@ export default function Results() {
           ))}
         </div>
       </div>
+
+      {/* Subalvos Recomendados (GeoPSI v4.0) */}
+      {data.subtargets?.length > 0 && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-white mb-1">Subalvos Recomendados</h2>
+          <p className="text-xs text-slate-500 mb-4">
+            Máximos locais detectados no raio de análise — GeoPSI v4.0
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  {['Alvo', 'Rank', 'Score PSI', 'Longitude', 'Latitude', 'Dist. (km)'].map(h => (
+                    <th key={h} className="text-left font-medium text-slate-500 pb-2 pr-4">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {data.subtargets.slice(0, 15).map((s, i) => (
+                  <tr key={i} className="hover:bg-slate-700/20">
+                    <td className="py-2 pr-4 font-semibold text-amber-400">{s.Target}</td>
+                    <td className="py-2 pr-4 text-slate-300 font-mono">#{s.Rank}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`font-mono font-bold ${s.Score > 0.8 ? 'text-amber-400' : s.Score > 0.6 ? 'text-orange-400' : 'text-slate-400'}`}>
+                        {(s.Score * 100).toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-slate-400 font-mono">{s.Lon?.toFixed(4)}°</td>
+                    <td className="py-2 pr-4 text-slate-400 font-mono">{s.Lat?.toFixed(4)}°</td>
+                    <td className="py-2 text-slate-400 font-mono">{s.DistanceToTarget_km?.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Interpretação Geológica */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">

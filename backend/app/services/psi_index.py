@@ -17,6 +17,16 @@ from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import RobustScaler
 
 from app.services.real_data_fetcher import fetch_layers
+from app.services.output_pipeline import run_full_output_pipeline
+
+
+# ── PSI Config (GeoPSI v4.0) ──────────────────────────────────────────────────
+
+_PSI_CFG = {
+    "L0": 1.0,
+    "lambda_decay": 0.35,
+    "regularization": 0.10,
+}
 
 
 # ── Pesos do PSI Index por commodity ─────────────────────────────────────────
@@ -67,6 +77,62 @@ def _compute_psi_index(
         if name in normalized:
             psi += w * normalized[name]
     return psi
+
+
+# ── GeoPSI v4.0 — ajuste estatístico não-linear ──────────────────────────────
+
+def _compute_shielding_index(
+    normalized: dict[str, np.ndarray],
+) -> np.ndarray:
+    """Proxy de suscetibilidade local (Σ): combinação MAG + GRAV."""
+    mag = normalized.get("MAG", np.zeros(1))
+    grav = normalized.get("GRAV", np.zeros(1))
+    density = 0.6 * mag + 0.4 * grav
+    # segunda normalização robusta
+    lo, hi = np.percentile(density, 5), np.percentile(density, 95)
+    if abs(hi - lo) < 1e-12:
+        return np.zeros_like(density)
+    return np.clip((density - lo) / (hi - lo), 0, 1)
+
+
+def _compute_latent_field(
+    sigma: np.ndarray,
+    LON: np.ndarray,
+    LAT: np.ndarray,
+    bbox: dict,
+) -> np.ndarray:
+    """Campo latente de correção espacial baseado em distância ao centro."""
+    center_lon = (bbox["lonMin"] + bbox["lonMax"]) / 2
+    center_lat = (bbox["latMin"] + bbox["latMax"]) / 2
+    depth = np.sqrt((LON - center_lon) ** 2 + (LAT - center_lat) ** 2)
+    depth_max = depth.max() + 1e-9
+    depth_norm = depth / depth_max
+    L0 = _PSI_CFG["L0"]
+    lam = _PSI_CFG["lambda_decay"]
+    field = L0 * (1 - sigma * np.exp(-lam * depth_norm))
+    return np.clip(field, 0.01, 1.0)
+
+
+def _compute_shielding_gradient(sigma: np.ndarray) -> np.ndarray:
+    grad_y, grad_x = np.gradient(np.nan_to_num(sigma))
+    grad = np.sqrt(grad_x ** 2 + grad_y ** 2)
+    max_g = grad.max()
+    return grad / max_g if max_g > 0 else grad
+
+
+def _psi_adjust_score(
+    base_score: np.ndarray,
+    sigma: np.ndarray,
+    field: np.ndarray,
+    gradient: np.ndarray,
+) -> np.ndarray:
+    """Ajuste não-linear vetorizado (substitui o loop pixel-a-pixel original)."""
+    shielding_factor = 0.5 + 0.5 * sigma
+    field_factor = 1.5 - 0.5 * field
+    gradient_factor = 1.0 + gradient
+    combined = shielding_factor * 0.4 + field_factor * 0.3 + gradient_factor * 0.3
+    adjusted = base_score * np.tanh(combined)
+    return np.clip(adjusted, 0, 1)
 
 
 def _find_priority_zones(
@@ -213,11 +279,17 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     # Normalize
     normalized = _normalize_layers(layers)
 
-    # PSI Index
+    # PSI Index (base — soma ponderada)
     weights = WEIGHTS.get(commodity, WEIGHTS["OURO"])
-    psi = _compute_psi_index(normalized, weights)
+    psi_base = _compute_psi_index(normalized, weights)
 
-    # Priority zones
+    # GeoPSI v4.0 — ajuste estatístico não-linear
+    sigma = _compute_shielding_index(normalized)
+    field = _compute_latent_field(sigma, LON, LAT, bbox)
+    gradient = _compute_shielding_gradient(sigma)
+    psi = _psi_adjust_score(psi_base, sigma, field, gradient)
+
+    # Priority zones (usa o score ajustado)
     _, n_zones = _find_priority_zones(psi, top_pct=0.05)
 
     # Rank targets
@@ -246,8 +318,17 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     for ls in layer_summary:
         ls["name"] = label_map.get(ls["name"], ls["name"])
 
+    job_id = str(uuid.uuid4())
+
+    # Gera zonas, subalvos e PDF via output_pipeline
+    output = run_full_output_pipeline(
+        psi_grid=psi,
+        normalized_layers=normalized,
+        config={**config, "bbox": bbox, "commodity": commodity, "dataType": data_type},
+    )
+
     return {
-        "jobId": str(uuid.uuid4()),
+        "jobId": job_id,
         "commodity": commodity,
         "dataType": data_type,
         "bbox": bbox,
@@ -256,5 +337,9 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "ternary": ternary,
         "topZones": int(n_zones),
         "radiusKm": radius_km,
+        "zones": output["zones"],
+        "subtargets": output["subtargets"],
+        "targetStats": output["targetStats"],
+        "_pdf": output["pdfBytes"],   # bytes — não serializado no JSON
         "createdAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
     }

@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
@@ -18,6 +19,9 @@ router = APIRouter()
 
 # In-memory job store (replace with Redis/DB in production)
 _jobs: dict[str, dict[str, Any]] = {}
+
+# PDF bytes per job (stored separately to avoid JSON serialization)
+_job_pdfs: dict[str, bytes] = {}
 
 # Uploaded layers keyed by session token hash → {internal_key: np.ndarray}
 # Stored as lists (serializable for JSON) only after analysis starts
@@ -132,7 +136,12 @@ async def run_analysis(
     result = await loop.run_in_executor(None, run_pipeline, config_dict)
 
     job_id = result["jobId"]
+
+    # Store PDF bytes separately (not in JSON response)
+    pdf_bytes = result.pop("_pdf", None)
     _jobs[job_id] = result
+    if pdf_bytes:
+        _job_pdfs[job_id] = pdf_bytes
 
     return {"job_id": job_id, "status": "completed"}
 
@@ -147,6 +156,27 @@ async def get_results(
     if job_id not in _jobs:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return _jobs[job_id]
+
+
+@router.get("/{job_id}/report")
+async def download_report(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna o relatório PDF técnico gerado para o job."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    pdf_bytes = _job_pdfs.get(job_id)
+    if not pdf_bytes:
+        raise HTTPException(status_code=404, detail="PDF não disponível para este job")
+    commodity = _jobs[job_id].get("commodity", "GEO")
+    date_str = _jobs[job_id].get("createdAt", "")[:10]
+    filename = f"GeoAnalytics_{commodity}_{date_str}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/jobs", response_model=list[dict])

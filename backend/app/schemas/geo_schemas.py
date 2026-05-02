@@ -80,4 +80,7 @@ class AnalysisResult(BaseModel):
     ternary: list[TernaryPoint]
     topZones: int
     radiusKm: float = 20.0
+    zones: list[dict] = []
+    subtargets: list[dict] = []
+    targetStats: list[dict] = []
     createdAt: str
