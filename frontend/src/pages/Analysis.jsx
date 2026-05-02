@@ -9,11 +9,7 @@ const DEFAULT_CONFIG = {
   resolution: 0.02,
   commodity: 'OURO',
   radiusKm: 20,
-  targets: [
-    { id: 'T1', lon: -40.57, lat: -4.65 },
-    { id: 'T2', lon: -41.58, lat: -4.30 },
-    { id: 'T3', lon: -41.20, lat: -4.52 },
-  ],
+  targets: [],
 }
 
 export default function Analysis() {
