@@ -729,27 +729,18 @@ def generate_3d_html(
         }],
     }
 
-    # O iframe usa o Plotly já carregado na página pai (window.parent.Plotly)
-    # evitando download de 3MB a cada abertura da aba.
+    # O iframe carrega Plotly direto do CDN (tentativa window.parent causava
+    # SecurityError porque sandbox=allow-scripts forca origin:null no iframe).
     html = (
         "<!DOCTYPE html><html><head>"
         '<meta charset="utf-8">'
+        '<script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>'
         "<style>*{margin:0;padding:0;box-sizing:border-box}"
         "body{background:#0f172a}#plot{width:100vw;height:100vh}</style>"
         "</head><body><div id=\"plot\"></div><script>"
-        # tenta usar Plotly da janela pai; senão carrega CDN como fallback
-        "var Plotly=window.Plotly||window.parent&&window.parent.Plotly;"
         f"var data={json.dumps(plot_data, separators=(',',':'))};"
         f"var layout={json.dumps(layout, separators=(',',':'))};"
-        "function render(){"
-        "  Plotly.newPlot('plot',data,layout,{responsive:true,displayModeBar:true});"
-        "}"
-        "if(Plotly){render();}else{"
-        "  var s=document.createElement('script');"
-        "  s.src='https://cdn.plot.ly/plotly-2.27.0.min.js';"
-        "  s.onload=render;"
-        "  document.head.appendChild(s);"
-        "}"
+        "Plotly.newPlot('plot',data,layout,{responsive:true,displayModeBar:true});"
         "</script></body></html>"
     )
     return html.encode("utf-8")
