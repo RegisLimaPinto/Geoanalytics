@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import analysis, auth, geo, payments
 from app.database import engine
 from app.models.payment import Payment, UserCredits  # noqa: F401 — ensure tables created
+from app.models.subscription import Subscription  # noqa: F401
 from app.models.user import Base
 
 # Cria as tabelas automaticamente na inicialização
