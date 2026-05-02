@@ -1,6 +1,7 @@
 import { PlayIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import DataUpload from './DataUpload'
 
-export default function TargetConfig({ config, onChange, onRun, loading }) {
+export default function TargetConfig({ config, onChange, onRun, loading, token }) {
   function updateBbox(key, val) {
     onChange({ ...config, bbox: { ...config.bbox, [key]: parseFloat(val) || 0 } })
   }
@@ -172,6 +173,11 @@ export default function TargetConfig({ config, onChange, onRun, loading }) {
         </div>
       </div>
 
+      {/* Upload de dados do cliente */}
+      <div className="border-t border-slate-700 pt-4">
+        <DataUpload config={config} token={token} />
+      </div>
+
       {/* Run button */}
       <button
         onClick={onRun}
@@ -191,9 +197,8 @@ export default function TargetConfig({ config, onChange, onRun, loading }) {
         )}
       </button>
 
-      <p className="text-xs text-slate-600 text-center leading-relaxed">
-        Os dados sintéticos são gerados automaticamente. <br />
-        Substitua por dados reais (GeoTIFF/CSV) para uso em produção.
+      <p className="text-[10px] text-slate-600 text-center leading-relaxed">
+        Sem upload: dados reais via CPRM/ICGEM ou sintético determinístico.
       </p>
     </div>
   )

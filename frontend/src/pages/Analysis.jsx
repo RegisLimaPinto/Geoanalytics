@@ -52,6 +52,7 @@ export default function Analysis() {
           onChange={setConfig}
           onRun={handleRunAnalysis}
           loading={loading}
+          token={token}
         />
       </aside>
 

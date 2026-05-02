@@ -195,6 +195,21 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     # Fetch real data (with fallback to deterministic synthetic)
     layers, data_type = fetch_layers(bbox, nx, ny)
 
+    # Override with user-uploaded layers when available
+    uploaded = config.get("uploaded_layers", {})
+    if uploaded:
+        for key, data in uploaded.items():
+            arr = np.array(data, dtype=np.float32)
+            if arr.shape != (nx, ny):
+                from scipy.ndimage import zoom as _zoom
+                arr = _zoom(arr, (nx / arr.shape[0], ny / arr.shape[1]), order=1)
+            layers[key] = arr
+        # Mark which layers came from upload
+        uploaded_names = list(uploaded.keys())
+        data_type = f"Upload do cliente ({', '.join(uploaded_names)})"
+        if len(uploaded) < 5:
+            data_type += " + automático"
+
     # Normalize
     normalized = _normalize_layers(layers)
 
