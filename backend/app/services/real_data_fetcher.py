@@ -230,40 +230,29 @@ def _fetch_icgem_gravity(bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
         return None
 
 
-# ─── Sintético determinístico (fallback) ─────────────────────────────────────
+# ─── Sintético controlado (modo DEMO) ───────────────────────────────────────
 
-def _synthetic_layers(nx: int, ny: int, seed: int) -> dict[str, np.ndarray]:
+def _synthetic_layers(
+    nx: int,
+    ny: int,
+    seed: int,
+    config: Optional[dict] = None,
+) -> dict[str, np.ndarray]:
     """
-    Gera camadas sintéticas determinísticas baseadas na seed (derivada da bbox).
-    Mesma área → mesma topografia geofísica, independente de quando é calculado.
+    Gera camadas sintéticas via demo_synthetic (anomalias gaussianas controladas).
+    Mesma config → mesmo resultado (rng seed=42 fixo no demo_synthetic).
     """
-    rng = np.random.default_rng(seed)
-    LN, LT = np.meshgrid(np.linspace(0, 1, ny), np.linspace(0, 1, nx))
+    from app.services.demo_synthetic import generate_controlled_synthetic_layers
 
-    def blob(cx, cy, sx, sy, amp):
-        return amp * np.exp(
-            -((LN - cx) ** 2 / (2 * sx ** 2) + (LT - cy) ** 2 / (2 * sy ** 2))
-        )
-
-    # Dois centros de anomalia, posição derivada da seed
-    cx1 = float(rng.uniform(0.15, 0.45))
-    cy1 = float(rng.uniform(0.45, 0.75))
-    cx2 = float(rng.uniform(0.55, 0.85))
-    cy2 = float(rng.uniform(0.25, 0.55))
-
-    def layer(mean, std, a1, a2, sigma=2.0):
-        raw = (rng.normal(mean, std, (nx, ny)).astype(np.float32)
-               + blob(cx1, cy1, 0.10, 0.10, a1)
-               + blob(cx2, cy2, 0.08, 0.08, a2))
-        return gaussian_filter(raw, sigma=sigma)
-
-    return {
-        "K":    layer(0.30, 0.10, 1.4, 1.1),
-        "U":    layer(0.25, 0.08, 0.9, 0.7),
-        "Th":   layer(0.35, 0.12, 0.5, 0.4),
-        "MAG":  layer(0.50, 0.15, 1.5, 1.2),
-        "GRAV": layer(0.40, 0.12, 0.8, 0.6),
+    demo_cfg = {
+        "bbox": config["bbox"] if config else {"lonMin": 0, "latMin": 0, "lonMax": 1, "latMax": 1},
+        "grid_w": ny,
+        "grid_h": nx,
+        "commodity": (config or {}).get("commodity", "gold"),
+        "targets": (config or {}).get("targets", []),
     }
+    layers, _ = generate_controlled_synthetic_layers(demo_cfg)
+    return layers
 
 
 # ─── Entry point ─────────────────────────────────────────────────────────────
@@ -272,12 +261,13 @@ def fetch_layers(
     bbox: dict,
     nx: int,
     ny: int,
+    config: Optional[dict] = None,
 ) -> tuple[dict[str, np.ndarray], str]:
     """
     Retorna (layers_dict, data_type_label).
 
     Busca CPRM (MAG/K/U/Th) e ICGEM (GRAV) em paralelo via ThreadPoolExecutor.
-    Camadas que falharem são preenchidas com sintético determinístico.
+    Camadas que falharem são preenchidas com sintético controlado (demo).
     Resultados são cacheados em memória por bbox (hash).
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -287,7 +277,7 @@ def fetch_layers(
     if cache_key in _FETCH_CACHE:
         logger.info("fetch_layers: cache hit para bbox %s", cache_key)
         return _FETCH_CACHE[cache_key]
-    synthetic = _synthetic_layers(nx, ny, seed)
+    synthetic = _synthetic_layers(nx, ny, seed, config)
     layers: dict[str, np.ndarray] = {}
     sources_used: list[str] = []
 
@@ -318,15 +308,15 @@ def fetch_layers(
                 logger.debug("fetch_layers %s → %s", key, exc)
                 layers[key] = synthetic[key]
 
-    # Garante que todas as camadas estão presentes
-    for key in ("MAG", "K", "U", "Th", "GRAV"):
+    # Garante que todas as camadas estão presentes (incluindo BOUGUER do sintético)
+    for key in ("MAG", "K", "U", "Th", "GRAV", "BOUGUER"):
         if key not in layers:
-            layers[key] = synthetic[key]
+            layers[key] = synthetic.get(key, synthetic["GRAV"].copy())
 
     if sources_used:
         data_type = "Real (" + " + ".join(sources_used) + ")"
     else:
-        data_type = "Sintetico (deterministico)"
+        data_type = "Sintetico (demo controlado)"
 
     result = (layers, data_type)
     _FETCH_CACHE[cache_key] = result

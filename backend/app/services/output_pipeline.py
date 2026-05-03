@@ -760,12 +760,13 @@ def run_full_output_pipeline(
     Retorna zonas, subalvos, stats radiais e bytes do PDF.
     """
     radius_km = config.get("radiusKm", 20)
+    demo = config.get("_demo", False)
 
     zones_df = detect_priority_zones(
         score_grid=psi_grid,
         config=config,
         radius_km=radius_km,
-        top_percent=5,
+        top_percent=15 if demo else 5,
         min_area_km2=0.05,
         max_zones_per_target=5,
     )
@@ -776,10 +777,17 @@ def run_full_output_pipeline(
         config=config,
         radius_km=radius_km,
         min_distance_pixels=8,
-        threshold_quantile=0.90,
+        threshold_quantile=0.85 if demo else 0.90,
         max_subtargets_per_target=6,
     )
     subtargets_df = _add_subtarget_justification(subtargets_df)
+
+    # Fallback demo: garante subalvos mesmo se detect_subtargets retornar vazio
+    if demo and subtargets_df.empty:
+        from app.services.demo_synthetic import fallback_subtargets
+        import pandas as pd
+        subtargets_df = pd.DataFrame(fallback_subtargets(psi_grid, config))
+        subtargets_df = _add_subtarget_justification(subtargets_df)
 
     target_stats_df = analyze_targets_radially(
         score_grid=psi_grid,

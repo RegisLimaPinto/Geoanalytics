@@ -262,8 +262,11 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     LON, LAT = np.meshgrid(lons_1d, lats_1d)
     nx, ny = LON.shape
 
-    # Fetch real data (with fallback to deterministic synthetic)
-    layers, data_type = fetch_layers(bbox, nx, ny)
+    # Fetch real data (fallback a demo sintético controlado quando indisponível)
+    layers, data_type = fetch_layers(
+        bbox, nx, ny,
+        config={"bbox": bbox, "commodity": commodity, "targets": targets_input},
+    )
 
     # Override with user-uploaded layers when available
     uploaded = config.get("uploaded_layers", {})
@@ -339,8 +342,10 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 for i, idx in enumerate(top_idx)
             ]
 
-    # Priority zones (usa o score ajustado)
-    _, n_zones = _find_priority_zones(psi, top_pct=0.05)
+    # Priority zones (usa threshold mais flexível no modo demo)
+    is_demo = "Sintetico" in data_type
+    top_pct_zones = 0.15 if is_demo else 0.05
+    _, n_zones = _find_priority_zones(psi, top_pct=top_pct_zones)
 
     # Rank targets
     ranked_targets = _rank_targets(targets_input, psi, LON, LAT, radius_km)
@@ -373,7 +378,15 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     job_id = str(uuid.uuid4())
 
     # Gera zonas, subalvos via output_pipeline (PDF gerado lazy em /report)
-    pipeline_config = {**config, "bbox": bbox, "commodity": commodity, "dataType": data_type}
+    is_demo = "Sintetico" in data_type
+    pipeline_config = {
+        **config,
+        "bbox": bbox,
+        "commodity": commodity,
+        "dataType": data_type,
+        "targets": targets_input,   # inclui alvos auto-detectados (corrige bug 0 zonas)
+        "_demo": is_demo,
+    }
     output = run_full_output_pipeline(
         psi_grid=psi,
         normalized_layers={k: v for k, v in smoothed.items() if k != "GRAD"},
