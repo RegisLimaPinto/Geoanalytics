@@ -237,8 +237,7 @@ def _render_table(ax, df: pd.DataFrame, *, wrap_cols: dict[str, int] | None = No
                   fontsize: int = 8, row_scale: float = 1.4):
     """
     Renderiza uma tabela em `ax` com larguras de coluna proporcionais e wrap de texto.
-    - wrap_cols: {col_name: max_chars_per_line}
-    - col_weights: {col_name: peso} (default 1.0); larguras finais somam 1.0
+    Tema claro/profissional (header azul, linhas alternadas).
     """
     wrap_cols = wrap_cols or {}
     col_weights = col_weights or {}
@@ -252,7 +251,6 @@ def _render_table(ax, df: pd.DataFrame, *, wrap_cols: dict[str, int] | None = No
                 lambda s: "\n".join(textwrap.wrap(s, width=width)) if s else s
             )
 
-    # Pesos default proporcionais ao maior comprimento de string da coluna
     weights = []
     for c in cols:
         if c in col_weights:
@@ -275,18 +273,21 @@ def _render_table(ax, df: pd.DataFrame, *, wrap_cols: dict[str, int] | None = No
     tbl.set_fontsize(fontsize)
     tbl.scale(1, row_scale)
 
-    # Ajusta altura conforme numero de linhas wrapadas
     for (r, c), cell in tbl.get_celld().items():
-        cell.set_facecolor("#1e293b" if r > 0 else "#334155")
-        cell.set_edgecolor("#475569")
-        cell.set_text_props(color="white")
+        if r == 0:
+            cell.set_facecolor("#1e3a8a")  # header azul escuro
+            cell.set_text_props(color="white", fontweight="bold")
+        else:
+            # Zebra striping
+            cell.set_facecolor("#f1f5f9" if r % 2 == 0 else "#ffffff")
+            cell.set_text_props(color="#0f172a")
+        cell.set_edgecolor("#cbd5e1")
         if r > 0:
             text = str(display_df.iloc[r - 1, c]) if c < len(cols) else ""
             n_lines = max(text.count("\n") + 1, 1)
             if n_lines > 1:
                 cell.set_height(cell.get_height() * (1 + 0.45 * (n_lines - 1)))
         cell.PAD = 0.04
-        cell.set_text_props(color="white", wrap=True)
     return tbl
 
 
@@ -309,6 +310,15 @@ def generate_pdf_report(
     targets = config.get("targets", [])
     bbox_extent = [bbox["lonMin"], bbox["lonMax"], bbox["latMin"], bbox["latMax"]]
 
+    # Paleta tema claro/profissional
+    BG = "#ffffff"
+    PANEL = "#f8fafc"
+    BORDER = "#cbd5e1"
+    TXT = "#0f172a"
+    TXT_MUTED = "#475569"
+    ACCENT = "#1e3a8a"
+    TARGET_COLOR = "#dc2626"
+
     buf = io.BytesIO()
     with PdfPages(buf) as pdf:
 
@@ -316,27 +326,40 @@ def generate_pdf_report(
         fig = plt.figure(figsize=(11.69, 8.27))
         ax = fig.add_subplot(111)
         ax.axis("off")
-        ax.set_facecolor("#0f172a")
-        fig.patch.set_facecolor("#0f172a")
+        ax.set_facecolor(BG)
+        fig.patch.set_facecolor(BG)
 
-        y = 0.88
-        ax.text(0.08, y, title, fontsize=20, fontweight="bold", color="white", transform=ax.transAxes)
+        # Faixa decorativa no topo
+        fig.add_artist(plt.Rectangle((0, 0.95), 1, 0.05, facecolor=ACCENT, transform=fig.transFigure))
+
+        y = 0.85
+        ax.text(0.08, y, title, fontsize=22, fontweight="bold", color=TXT, transform=ax.transAxes)
+        ax.text(0.08, y - 0.05, f"Commodity-alvo: {commodity}",
+                fontsize=12, color=TXT_MUTED, transform=ax.transAxes)
+        # Linha separadora
+        ax.plot([0.08, 0.92], [y - 0.08, y - 0.08], color=BORDER, lw=1, transform=ax.transAxes)
+
+        y -= 0.15
         for label_text, val in [
-            ("Commodity:", commodity),
-            ("BBox lon:", f"{bbox['lonMin']:.3f}° → {bbox['lonMax']:.3f}°"),
-            ("BBox lat:", f"{bbox['latMin']:.3f}° → {bbox['latMax']:.3f}°"),
+            ("BBox lon:", f"{bbox['lonMin']:.3f}° \u2192 {bbox['lonMax']:.3f}°"),
+            ("BBox lat:", f"{bbox['latMin']:.3f}° \u2192 {bbox['latMax']:.3f}°"),
             ("Alvos analisados:", str(len(targets))),
             ("Zonas prioritárias:", str(len(zones_df))),
             ("Subalvos recomendados:", str(len(subtargets_df))),
         ]:
-            y -= 0.07
-            ax.text(0.08, y, label_text, fontsize=11, color="#94a3b8", transform=ax.transAxes)
-            ax.text(0.30, y, val, fontsize=11, fontweight="bold", color="white", transform=ax.transAxes)
+            ax.text(0.08, y, label_text, fontsize=11, color=TXT_MUTED, transform=ax.transAxes)
+            ax.text(0.32, y, val, fontsize=11, fontweight="bold", color=TXT, transform=ax.transAxes)
+            y -= 0.06
 
         if synthetic:
-            ax.text(0.08, y - 0.10,
-                    "⚠ DADOS SINTÉTICOS — não representam validação geológica real.",
-                    fontsize=11, color="#f87171", transform=ax.transAxes)
+            ax.text(0.08, y - 0.05,
+                    "\u26a0 DADOS SINTÉTICOS — não representam validação geológica real.",
+                    fontsize=11, color="#b91c1c", fontweight="bold", transform=ax.transAxes,
+                    bbox=dict(boxstyle="round,pad=0.4", facecolor="#fef2f2", edgecolor="#fecaca"))
+
+        # Rodapé
+        ax.text(0.5, 0.03, "GeoAnalytics — Pipeline PSI", ha="center", fontsize=8,
+                color=TXT_MUTED, transform=ax.transAxes)
 
         pdf.savefig(fig, facecolor=fig.get_facecolor())
         plt.close(fig)
@@ -347,58 +370,58 @@ def generate_pdf_report(
             cols = 3
             rows_count = int(np.ceil(len(selected) / cols))
             fig, axes = plt.subplots(rows_count, cols, figsize=(11.69, 8.27))
-            fig.patch.set_facecolor("#0f172a")
+            fig.patch.set_facecolor(BG)
             axes_flat = np.array(axes).reshape(-1)
 
             for ax, lname in zip(axes_flat, selected):
-                ax.set_facecolor("#0f172a")
+                ax.set_facecolor(PANEL)
                 im = ax.imshow(
                     layers[lname], extent=bbox_extent, origin="lower",
-                    aspect="auto", cmap="hot"
+                    aspect="auto", cmap="viridis"
                 )
-                ax.set_title(lname, color="white", fontsize=9)
-                ax.tick_params(colors="#64748b", labelsize=7)
+                ax.set_title(lname, color=TXT, fontsize=10, fontweight="bold")
+                ax.tick_params(colors=TXT_MUTED, labelsize=7)
                 for spine in ax.spines.values():
-                    spine.set_edgecolor("#334155")
+                    spine.set_edgecolor(BORDER)
                 for t in targets:
-                    ax.plot(t["lon"], t["lat"], "x", color="#f59e0b", markersize=5)
-                    ax.text(t["lon"], t["lat"], f" {t['id']}", color="white", fontsize=7)
+                    ax.plot(t["lon"], t["lat"], "x", color=TARGET_COLOR, markersize=6, markeredgewidth=2)
+                    ax.text(t["lon"], t["lat"], f" {t['id']}", color=TXT, fontsize=7, fontweight="bold")
                 plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
             for ax in axes_flat[len(selected):]:
                 ax.axis("off")
 
             fig.suptitle("Camadas geofísicas — normalização RobustScaler 0–1",
-                         fontsize=13, fontweight="bold", color="white")
+                         fontsize=13, fontweight="bold", color=TXT)
             plt.tight_layout(rect=[0, 0, 1, 0.95])
             pdf.savefig(fig, facecolor=fig.get_facecolor())
             plt.close(fig)
 
         # --- Página 3: Mapa de favorabilidade ---
         fig, ax = plt.subplots(figsize=(11.69, 8.27))
-        fig.patch.set_facecolor("#0f172a")
-        ax.set_facecolor("#0f172a")
+        fig.patch.set_facecolor(BG)
+        ax.set_facecolor(PANEL)
 
         im = ax.imshow(score_grid, extent=bbox_extent, origin="lower", aspect="auto", cmap="RdYlGn")
         ax.set_title(f"Mapa Integrado de Favorabilidade — {commodity}",
-                     fontsize=14, fontweight="bold", color="white")
-        ax.set_xlabel("Longitude", color="#94a3b8")
-        ax.set_ylabel("Latitude", color="#94a3b8")
-        ax.tick_params(colors="#64748b")
+                     fontsize=14, fontweight="bold", color=TXT)
+        ax.set_xlabel("Longitude", color=TXT_MUTED)
+        ax.set_ylabel("Latitude", color=TXT_MUTED)
+        ax.tick_params(colors=TXT_MUTED)
         for spine in ax.spines.values():
-            spine.set_edgecolor("#334155")
+            spine.set_edgecolor(BORDER)
 
         for t in targets:
-            ax.plot(t["lon"], t["lat"], "x", color="#f59e0b", markersize=9, markeredgewidth=2)
-            ax.text(t["lon"], t["lat"], f"  {t['id']}", color="white", fontsize=9, fontweight="bold")
+            ax.plot(t["lon"], t["lat"], "x", color=TARGET_COLOR, markersize=10, markeredgewidth=2.5)
+            ax.text(t["lon"], t["lat"], f"  {t['id']}", color=TXT, fontsize=10, fontweight="bold")
 
         if not zones_df.empty:
             ax.scatter(
                 zones_df["CentroidLon"], zones_df["CentroidLat"],
-                s=50, marker="o", c="#60a5fa", label="Zonas prioritárias",
-                zorder=5, alpha=0.8,
+                s=60, marker="o", c="#1e3a8a", edgecolors="white", linewidths=1.2,
+                label="Zonas prioritárias", zorder=5, alpha=0.9,
             )
-            ax.legend(facecolor="#1e293b", edgecolor="#334155", labelcolor="white")
+            ax.legend(facecolor="white", edgecolor=BORDER, labelcolor=TXT, framealpha=0.95)
 
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Score 0–1")
         plt.tight_layout()
@@ -408,11 +431,11 @@ def generate_pdf_report(
         # --- Página 4: Análise radial por alvo ---
         if not target_stats_df.empty:
             fig, ax = plt.subplots(figsize=(11.69, 8.27))
-            fig.patch.set_facecolor("#0f172a")
+            fig.patch.set_facecolor(BG)
             ax.axis("off")
-            ax.text(0.5, 0.97, "Análise Radial por Alvo",
+            ax.text(0.5, 0.95, "Análise Radial por Alvo",
                     fontsize=14, fontweight="bold", ha="center", va="top",
-                    color="white", transform=ax.transAxes)
+                    color=TXT, transform=ax.transAxes)
 
             _render_table(ax, target_stats_df.round(4), fontsize=8, row_scale=1.5)
 
@@ -423,11 +446,11 @@ def generate_pdf_report(
         if not zones_df.empty:
             top20 = zones_df.sort_values("PriorityScore", ascending=False).head(20)
             fig, ax = plt.subplots(figsize=(11.69, 8.27))
-            fig.patch.set_facecolor("#0f172a")
+            fig.patch.set_facecolor(BG)
             ax.axis("off")
-            ax.text(0.5, 0.97, "Zonas Prioritárias Detectadas",
+            ax.text(0.5, 0.95, "Zonas Prioritárias Detectadas",
                     fontsize=14, fontweight="bold", ha="center", va="top",
-                    color="white", transform=ax.transAxes)
+                    color=TXT, transform=ax.transAxes)
 
             _render_table(ax, top20.round(4), fontsize=7, row_scale=1.4)
 
@@ -438,13 +461,12 @@ def generate_pdf_report(
         if not subtargets_df.empty:
             top30 = subtargets_df.sort_values(["Target", "Rank"]).head(30)
             fig, ax = plt.subplots(figsize=(11.69, 8.27))
-            fig.patch.set_facecolor("#0f172a")
+            fig.patch.set_facecolor(BG)
             ax.axis("off")
-            ax.text(0.5, 0.97, "Subalvos Recomendados",
+            ax.text(0.5, 0.95, "Subalvos Recomendados",
                     fontsize=14, fontweight="bold", ha="center", va="top",
-                    color="white", transform=ax.transAxes)
+                    color=TXT, transform=ax.transAxes)
 
-            # Justificativa eh longa: wrap + peso maior; demais colunas pesos pequenos
             _render_table(
                 ax,
                 top30.round(5),
@@ -463,13 +485,14 @@ def generate_pdf_report(
 
         # --- Página final: Conclusão ---
         fig = plt.figure(figsize=(11.69, 8.27))
-        fig.patch.set_facecolor("#0f172a")
+        fig.patch.set_facecolor(BG)
         ax = fig.add_subplot(111)
         ax.axis("off")
-        ax.set_facecolor("#0f172a")
+        ax.set_facecolor(BG)
 
         ax.text(0.08, 0.92, "Conclusão Interpretativa",
-                fontsize=16, fontweight="bold", color="white", transform=ax.transAxes)
+                fontsize=16, fontweight="bold", color=TXT, transform=ax.transAxes)
+        ax.plot([0.08, 0.92], [0.89, 0.89], color=ACCENT, lw=1.5, transform=ax.transAxes)
 
         if not zones_df.empty:
             top_zone = zones_df.sort_values("PriorityScore", ascending=False).iloc[0]
@@ -494,10 +517,10 @@ def generate_pdf_report(
             "mapeamento geológico, geoquímica e validação de campo antes de qualquer sondagem."
         )
 
-        ax.text(0.08, 0.80, body, fontsize=11, color="#cbd5e1",
+        ax.text(0.08, 0.83, body, fontsize=11, color=TXT,
                 transform=ax.transAxes, va="top", wrap=True,
                 multialignment="left",
-                bbox=dict(boxstyle="round,pad=0.4", facecolor="#1e293b", edgecolor="#334155"))
+                bbox=dict(boxstyle="round,pad=0.6", facecolor=PANEL, edgecolor=BORDER))
 
         pdf.savefig(fig, facecolor=fig.get_facecolor())
         plt.close(fig)
