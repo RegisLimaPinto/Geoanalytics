@@ -80,17 +80,28 @@ export default function Results() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [pdfError, setPdfError] = useState(null)
   const [activeTab, setActiveTab] = useState(0)
   const [mapError, setMapError] = useState(false)
   const { token } = useAuth()
 
   const handleExportPDF = async () => {
-    if (!data?.jobId || data.jobId === 'demo-synthetic' || exporting) return
+    if (exporting) return
+    setPdfError(null)
+    // Demo sem job real
+    if (!data?.jobId || data.jobId === 'demo-synthetic') {
+      setPdfError('Execute uma análise real para gerar o relatório PDF.')
+      return
+    }
     setExporting(true)
     try {
       const res = await fetch(`/api/analysis/${data.jobId}/report`, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (res.status === 404) {
+        setPdfError('Relatório não disponível — o servidor foi reiniciado após esta análise. Execute uma nova análise para gerar o PDF.')
+        return
+      }
       if (!res.ok) throw new Error(res.status)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -100,7 +111,7 @@ export default function Results() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      alert('PDF nao disponivel. Execute uma analise real para gerar o relatorio.')
+      setPdfError('Erro ao gerar PDF. Tente novamente.')
     } finally {
       setExporting(false)
     }
@@ -182,13 +193,23 @@ export default function Results() {
               <ArrowDownTrayIcon className="w-3.5 h-3.5" />{ds}.csv
             </button>
           ))}
-          <button onClick={handleExportPDF} disabled={exporting || isDemo || !!data._expired}
-            className="flex items-center gap-1.5 text-sm border border-slate-600 hover:border-amber-500/50 hover:text-amber-400 disabled:opacity-40 text-slate-400 px-3 py-1.5 rounded-md transition-colors">
-            <ArrowDownTrayIcon className="w-4 h-4" />
-            {exporting ? 'Gerando PDF...' : 'Exportar PDF'}
+          <button onClick={handleExportPDF} disabled={exporting}
+            className="flex items-center gap-1.5 text-sm border border-amber-500/40 hover:border-amber-500 hover:text-amber-400 disabled:opacity-50 disabled:cursor-wait text-amber-400/80 px-3 py-1.5 rounded-md transition-colors">
+            {exporting
+              ? <><div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />Gerando PDF...</>
+              : <><ArrowDownTrayIcon className="w-4 h-4" />Exportar PDF</>}
           </button>
         </div>
       </div>
+
+      {/* Erro PDF inline */}
+      {pdfError && (
+        <div className="flex items-start gap-2 bg-rose-950/60 border border-rose-500/30 rounded-lg px-4 py-2.5 text-xs text-rose-300">
+          <span className="flex-shrink-0 mt-0.5">⚠</span>
+          <span className="flex-1">{pdfError}</span>
+          <button onClick={() => setPdfError(null)} className="text-rose-500 hover:text-rose-300 flex-shrink-0">✕</button>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
