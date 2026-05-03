@@ -26,11 +26,12 @@ function CursorManager({ mode }) {
 }
 
 function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
-  const [firstClick, setFirstClick] = useState(null)
-  const [hover, setHover] = useState(null)
+  const map = useMap()
+  const [dragStart, setDragStart] = useState(null)
+  const [dragCurrent, setDragCurrent] = useState(null)
   const [confirmed, setConfirmed] = useState(null) // bbox flash
 
-  // Refs garantem que o handler sempre lê os valores mais recentes
+  // Refs para sempre ler valores recentes nos handlers
   const modeRef = useRef(mode)
   const onBboxChangeRef = useRef(onBboxChange)
   const onTargetAddRef = useRef(onTargetAdd)
@@ -38,36 +39,68 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
   onBboxChangeRef.current = onBboxChange
   onTargetAddRef.current = onTargetAdd
 
+  // Desabilita pan/zoom enquanto desenha bbox para o arrastar nao mover o mapa
+  useEffect(() => {
+    if (mode === 'draw-bbox') {
+      map.dragging.disable()
+      map.boxZoom.disable()
+      map.doubleClickZoom.disable()
+    } else {
+      map.dragging.enable()
+      map.boxZoom.enable()
+      map.doubleClickZoom.enable()
+      setDragStart(null)
+      setDragCurrent(null)
+    }
+  }, [mode, map])
+
   useMapEvents({
+    mousedown(e) {
+      if (modeRef.current !== 'draw-bbox') return
+      setDragStart(e.latlng)
+      setDragCurrent(e.latlng)
+    },
+    mousemove(e) {
+      if (modeRef.current === 'draw-bbox' && dragStart) {
+        setDragCurrent(e.latlng)
+      }
+    },
+    mouseup(e) {
+      if (modeRef.current !== 'draw-bbox' || !dragStart) return
+      const a = dragStart
+      const b = e.latlng
+      const dLat = Math.abs(a.lat - b.lat)
+      const dLng = Math.abs(a.lng - b.lng)
+      // ignora cliques sem arrasto significativo (< ~0.01deg)
+      if (dLat < 0.005 && dLng < 0.005) {
+        setDragStart(null)
+        setDragCurrent(null)
+        return
+      }
+      const newBbox = {
+        lonMin: parseFloat(Math.min(a.lng, b.lng).toFixed(4)),
+        latMin: parseFloat(Math.min(a.lat, b.lat).toFixed(4)),
+        lonMax: parseFloat(Math.max(a.lng, b.lng).toFixed(4)),
+        latMax: parseFloat(Math.max(a.lat, b.lat).toFixed(4)),
+      }
+      console.log('[GeoMap] bbox draw', newBbox)
+      setConfirmed(newBbox)
+      setTimeout(() => setConfirmed(null), 800)
+      onBboxChangeRef.current(newBbox)
+      setDragStart(null)
+      setDragCurrent(null)
+    },
     click(e) {
-      const { lat, lng } = e.latlng
       const currentMode = modeRef.current
-      console.log('[GeoMap] click', { lat, lng, mode: currentMode })
-      if (currentMode === 'draw-bbox') {
-        setFirstClick(prev => {
-          if (!prev) return { lat, lng }
-          const newBbox = {
-            lonMin: parseFloat(Math.min(prev.lng, lng).toFixed(4)),
-            latMin: parseFloat(Math.min(prev.lat, lat).toFixed(4)),
-            lonMax: parseFloat(Math.max(prev.lng, lng).toFixed(4)),
-            latMax: parseFloat(Math.max(prev.lat, lat).toFixed(4)),
-          }
-          setConfirmed(newBbox)
-          setTimeout(() => setConfirmed(null), 800)
-          onBboxChangeRef.current(newBbox)
-          setHover(null)
-          return null
-        })
-      } else if (currentMode === 'add-target') {
+      if (currentMode === 'add-target') {
+        const { lat, lng } = e.latlng
+        console.log('[GeoMap] click add-target', { lat, lng })
         onTargetAddRef.current({ lon: parseFloat(lng.toFixed(5)), lat: parseFloat(lat.toFixed(5)) })
       }
     },
-    mousemove(e) {
-      if (modeRef.current === 'draw-bbox') setHover(e.latlng)
-    },
   })
 
-  // Flash de confirmacao (bbox confirmada)
+  // Flash de confirmacao
   if (confirmed) {
     return (
       <Rectangle
@@ -75,28 +108,20 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
           [confirmed.latMin, confirmed.lonMin],
           [confirmed.latMax, confirmed.lonMax],
         ]}
-        pathOptions={{ color: '#22d3ee', weight: 2, fill: true, fillColor: '#22d3ee', fillOpacity: 0.25 }}
+        pathOptions={{ color: '#22d3ee', weight: 2, fill: true, fillColor: '#22d3ee', fillOpacity: 0.25, interactive: false }}
       />
     )
   }
 
-  if (mode === 'draw-bbox' && firstClick && hover) {
+  // Preview enquanto arrasta
+  if (mode === 'draw-bbox' && dragStart && dragCurrent) {
     return (
       <Rectangle
         bounds={[
-          [Math.min(firstClick.lat, hover.lat), Math.min(firstClick.lng, hover.lng)],
-          [Math.max(firstClick.lat, hover.lat), Math.max(firstClick.lng, hover.lng)],
+          [Math.min(dragStart.lat, dragCurrent.lat), Math.min(dragStart.lng, dragCurrent.lng)],
+          [Math.max(dragStart.lat, dragCurrent.lat), Math.max(dragStart.lng, dragCurrent.lng)],
         ]}
-        pathOptions={{ color: '#22d3ee', weight: 1.5, dashArray: '4 3', fill: true, fillColor: '#22d3ee', fillOpacity: 0.1 }}
-      />
-    )
-  }
-  if (mode === 'draw-bbox' && firstClick) {
-    return (
-      <CircleMarker
-        center={[firstClick.lat, firstClick.lng]}
-        radius={5}
-        pathOptions={{ color: '#22d3ee', fillColor: '#22d3ee', fillOpacity: 1, weight: 2 }}
+        pathOptions={{ color: '#22d3ee', weight: 2, dashArray: '4 3', fill: true, fillColor: '#22d3ee', fillOpacity: 0.15, interactive: false }}
       />
     )
   }
