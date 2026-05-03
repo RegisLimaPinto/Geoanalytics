@@ -530,8 +530,14 @@ def generate_pdf_report(
             "mapeamento geológico, geoquímica e validação de campo antes de qualquer sondagem."
         )
 
-        ax.text(0.08, 0.83, body, fontsize=11, color=TXT,
-                transform=ax.transAxes, va="top", wrap=True,
+        # Quebra manual (matplotlib wrap=True nao funciona com bbox)
+        wrapped_paragraphs = []
+        for paragraph in body.split("\n\n"):
+            wrapped_paragraphs.append("\n".join(textwrap.wrap(paragraph, width=110)))
+        wrapped_body = "\n\n".join(wrapped_paragraphs)
+
+        ax.text(0.08, 0.83, wrapped_body, fontsize=10, color=TXT,
+                transform=ax.transAxes, va="top",
                 multialignment="left",
                 bbox=dict(boxstyle="round,pad=0.6", facecolor=PANEL, edgecolor=BORDER))
 
