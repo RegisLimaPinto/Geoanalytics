@@ -8,6 +8,7 @@ Módulos complementares GeoAnalytics / PSI Analytics
 
 import io
 import os
+import textwrap
 from typing import Any
 
 import matplotlib
@@ -231,6 +232,64 @@ def analyze_targets_radially(
 # 4) GERAÇÃO DE RELATÓRIO PDF TÉCNICO
 # ============================================================
 
+def _render_table(ax, df: pd.DataFrame, *, wrap_cols: dict[str, int] | None = None,
+                  col_weights: dict[str, float] | None = None,
+                  fontsize: int = 8, row_scale: float = 1.4):
+    """
+    Renderiza uma tabela em `ax` com larguras de coluna proporcionais e wrap de texto.
+    - wrap_cols: {col_name: max_chars_per_line}
+    - col_weights: {col_name: peso} (default 1.0); larguras finais somam 1.0
+    """
+    wrap_cols = wrap_cols or {}
+    col_weights = col_weights or {}
+    cols = df.columns.tolist()
+
+    # Aplica wrap em colunas longas
+    display_df = df.copy()
+    for c, width in wrap_cols.items():
+        if c in display_df.columns:
+            display_df[c] = display_df[c].astype(str).map(
+                lambda s: "\n".join(textwrap.wrap(s, width=width)) if s else s
+            )
+
+    # Pesos default proporcionais ao maior comprimento de string da coluna
+    weights = []
+    for c in cols:
+        if c in col_weights:
+            weights.append(col_weights[c])
+        else:
+            sample = display_df[c].astype(str).map(lambda s: max(len(line) for line in s.split("\n")) if s else 1)
+            header_len = len(str(c))
+            weights.append(max(sample.max() if len(sample) else 1, header_len))
+    total = float(sum(weights)) or 1.0
+    col_widths = [w / total for w in weights]
+
+    tbl = ax.table(
+        cellText=display_df.values,
+        colLabels=cols,
+        colWidths=col_widths,
+        loc="center",
+        cellLoc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(fontsize)
+    tbl.scale(1, row_scale)
+
+    # Ajusta altura conforme numero de linhas wrapadas
+    for (r, c), cell in tbl.get_celld().items():
+        cell.set_facecolor("#1e293b" if r > 0 else "#334155")
+        cell.set_edgecolor("#475569")
+        cell.set_text_props(color="white")
+        if r > 0:
+            text = str(display_df.iloc[r - 1, c]) if c < len(cols) else ""
+            n_lines = max(text.count("\n") + 1, 1)
+            if n_lines > 1:
+                cell.set_height(cell.get_height() * (1 + 0.45 * (n_lines - 1)))
+        cell.PAD = 0.04
+        cell.set_text_props(color="white", wrap=True)
+    return tbl
+
+
 def generate_pdf_report(
     score_grid: np.ndarray,
     layers: dict[str, np.ndarray],
@@ -355,19 +414,7 @@ def generate_pdf_report(
                     fontsize=14, fontweight="bold", ha="center", va="top",
                     color="white", transform=ax.transAxes)
 
-            tbl = ax.table(
-                cellText=target_stats_df.round(4).values,
-                colLabels=target_stats_df.columns.tolist(),
-                loc="center",
-                cellLoc="center",
-            )
-            tbl.auto_set_font_size(False)
-            tbl.set_fontsize(8)
-            tbl.scale(1, 1.5)
-            for (r, c), cell in tbl.get_celld().items():
-                cell.set_facecolor("#1e293b" if r > 0 else "#334155")
-                cell.set_edgecolor("#475569")
-                cell.set_text_props(color="white")
+            _render_table(ax, target_stats_df.round(4), fontsize=8, row_scale=1.5)
 
             pdf.savefig(fig, facecolor=fig.get_facecolor())
             plt.close(fig)
@@ -382,19 +429,7 @@ def generate_pdf_report(
                     fontsize=14, fontweight="bold", ha="center", va="top",
                     color="white", transform=ax.transAxes)
 
-            tbl = ax.table(
-                cellText=top20.round(4).values,
-                colLabels=top20.columns.tolist(),
-                loc="center",
-                cellLoc="center",
-            )
-            tbl.auto_set_font_size(False)
-            tbl.set_fontsize(7)
-            tbl.scale(1, 1.3)
-            for (r, c), cell in tbl.get_celld().items():
-                cell.set_facecolor("#1e293b" if r > 0 else "#334155")
-                cell.set_edgecolor("#475569")
-                cell.set_text_props(color="white")
+            _render_table(ax, top20.round(4), fontsize=7, row_scale=1.4)
 
             pdf.savefig(fig, facecolor=fig.get_facecolor())
             plt.close(fig)
@@ -409,19 +444,19 @@ def generate_pdf_report(
                     fontsize=14, fontweight="bold", ha="center", va="top",
                     color="white", transform=ax.transAxes)
 
-            tbl = ax.table(
-                cellText=top30.round(5).values,
-                colLabels=top30.columns.tolist(),
-                loc="center",
-                cellLoc="center",
+            # Justificativa eh longa: wrap + peso maior; demais colunas pesos pequenos
+            _render_table(
+                ax,
+                top30.round(5),
+                wrap_cols={"Justificativa": 55},
+                col_weights={
+                    "Target": 1.2, "Rank": 1.0, "Score": 1.5,
+                    "Lon": 1.8, "Lat": 1.8, "DistanceToTarget_km": 2.2,
+                    "Justificativa": 7.0,
+                },
+                fontsize=7,
+                row_scale=1.5,
             )
-            tbl.auto_set_font_size(False)
-            tbl.set_fontsize(8)
-            tbl.scale(1, 1.4)
-            for (r, c), cell in tbl.get_celld().items():
-                cell.set_facecolor("#1e293b" if r > 0 else "#334155")
-                cell.set_edgecolor("#475569")
-                cell.set_text_props(color="white")
 
             pdf.savefig(fig, facecolor=fig.get_facecolor())
             plt.close(fig)
