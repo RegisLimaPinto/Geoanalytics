@@ -185,8 +185,12 @@ export default function Analysis() {
       if (res.status === 402) { setNoCredits(true); return }
       if (res.status === 422) {
         const err = await res.json().catch(() => null)
-        console.error('[Analysis] 422 validation', err)
-        showToast('Dados invalidos: verifique area e pontos no mapa', 'amber')
+        console.error('[Analysis] 422 validation', JSON.stringify(err, null, 2))
+        const first = err?.detail?.[0]
+        const msg = first
+          ? `Erro: ${(first.loc || []).join('.')} - ${first.msg}`
+          : 'Dados invalidos: verifique area e pontos no mapa'
+        showToast(msg, 'amber')
         return
       }
       if (!res.ok) throw new Error('Backend error')

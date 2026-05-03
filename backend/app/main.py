@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import analysis, auth, geo, payments
 from app.database import engine
@@ -34,6 +36,12 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(geo.router, prefix="/api/geo", tags=["Geo"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"[VALIDATION 422] {request.method} {request.url.path} -> {exc.errors()}", flush=True)
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.get("/api/health")
