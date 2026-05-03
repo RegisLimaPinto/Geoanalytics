@@ -146,24 +146,38 @@ export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', on
         />
       ))}
 
-      {/* Marcadores de alvo */}
-      {targets.map(t => (
-        <CircleMarker
-          key={t.id}
-          center={[t.lat, t.lon]}
-          radius={8}
-          pathOptions={{ color: '#f59e0b', weight: 2, fillColor: '#0f172a', fillOpacity: 0.9 }}
-        >
-          <Tooltip permanent direction="right" offset={[10, 0]}>
-            <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>
-              {t.id}
-              {t.psiScore !== undefined && (
-                <span style={{ color: '#94a3b8', fontWeight: 400 }}> - {(t.psiScore * 100).toFixed(0)}%</span>
-              )}
-            </span>
-          </Tooltip>
-        </CircleMarker>
-      ))}
+      {/* Marcadores de alvo - pontos sem psiScore (recem-adicionados) sao maiores e ciano */}
+      {targets.map(t => {
+        const isPending = t.psiScore === undefined
+        return (
+          <CircleMarker
+            key={t.id}
+            center={[t.lat, t.lon]}
+            radius={isPending ? 11 : 8}
+            pathOptions={{
+              color: isPending ? '#22d3ee' : '#f59e0b',
+              weight: isPending ? 3 : 2,
+              fillColor: isPending ? '#22d3ee' : '#0f172a',
+              fillOpacity: isPending ? 0.7 : 0.9,
+            }}
+          >
+            <Tooltip permanent direction="right" offset={[12, 0]}>
+              <span style={{
+                color: isPending ? '#67e8f9' : '#fbbf24',
+                fontWeight: 700, fontSize: 11, fontFamily: 'monospace',
+              }}>
+                {t.id}
+                {!isPending && (
+                  <span style={{ color: '#94a3b8', fontWeight: 400 }}> - {(t.psiScore * 100).toFixed(0)}%</span>
+                )}
+                {isPending && (
+                  <span style={{ color: '#94a3b8', fontWeight: 400 }}> ({t.lon.toFixed(2)}, {t.lat.toFixed(2)})</span>
+                )}
+              </span>
+            </Tooltip>
+          </CircleMarker>
+        )
+      })}
     </MapContainer>
   )
 }

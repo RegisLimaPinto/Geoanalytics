@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
 function loadConfig() {
   try {
     const saved = localStorage.getItem('geo_analysis_config')
-    if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved), targets: [] }
+    if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) }
   } catch {}
   return DEFAULT_CONFIG
 }
@@ -107,10 +107,9 @@ export default function Analysis() {
     setTimeout(() => setToast(null), 2000)
   }
 
-  // Persiste config no localStorage sempre que mudar (exceto targets)
+  // Persiste config no localStorage sempre que mudar (incluindo targets)
   useEffect(() => {
-    const { targets, ...toSave } = config
-    localStorage.setItem('geo_analysis_config', JSON.stringify(toSave))
+    localStorage.setItem('geo_analysis_config', JSON.stringify(config))
   }, [config])
 
   function handleBboxChange(bbox) {
