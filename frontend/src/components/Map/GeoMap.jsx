@@ -8,6 +8,13 @@ const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">Open
 function FitBounds({ bbox }) {
   const map = useMap()
   useEffect(() => {
+    const dLat = Math.abs(bbox.latMax - bbox.latMin)
+    const dLon = Math.abs(bbox.lonMax - bbox.lonMin)
+    if (dLat < 0.001 || dLon < 0.001) {
+      // bbox zerada/degenerada: volta para vista do Brasil em vez de zoom infinito em [0,0]
+      map.setView([-10, -50], 4)
+      return
+    }
     map.fitBounds([
       [bbox.latMin, bbox.lonMin],
       [bbox.latMax, bbox.lonMax],
@@ -129,16 +136,16 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
 }
 
 export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', onBboxChange, onTargetAdd }) {
-  const center = [
-    (bbox.latMin + bbox.latMax) / 2,
-    (bbox.lonMin + bbox.lonMax) / 2,
-  ]
+  const bboxValid = Math.abs(bbox.latMax - bbox.latMin) > 0.001 && Math.abs(bbox.lonMax - bbox.lonMin) > 0.001
+  const center = bboxValid
+    ? [(bbox.latMin + bbox.latMax) / 2, (bbox.lonMin + bbox.lonMax) / 2]
+    : [-10, -50] // Brasil central como fallback quando bbox zerada
   const radiusM = radiusKm * 1000
 
   return (
     <MapContainer
       center={center}
-      zoom={8}
+      zoom={bboxValid ? 8 : 4}
       className="w-full h-full"
       zoomControl={true}
       scrollWheelZoom={true}
@@ -152,10 +159,12 @@ export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', on
       )}
 
       {/* Bounding box da area de analise - fill mais visivel, nao-interativa para nao bloquear cliques */}
-      <Rectangle
-        bounds={[[bbox.latMin, bbox.lonMin], [bbox.latMax, bbox.lonMax]]}
-        pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.10, interactive: false }}
-      />
+      {bboxValid && (
+        <Rectangle
+          bounds={[[bbox.latMin, bbox.lonMin], [bbox.latMax, bbox.lonMax]]}
+          pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.10, interactive: false }}
+        />
+      )}
 
       {/* Raio de analise por alvo - nao-interativo */}
       {targets.map(t => (
