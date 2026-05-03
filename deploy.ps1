@@ -7,7 +7,8 @@
 
 param(
     [switch]$Rollback,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$Clean
 )
 
 # ── Configuração ───────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ function Write-Err  { param($msg) Write-Host "[erro]   $msg" -ForegroundColor Re
 $args_remote = ""
 if ($Rollback) { $args_remote = "--rollback" }
 if ($Force)    { $args_remote = "--force" }
+if ($Clean)    { $args_remote = "--clean" }
 
 # ── Monta comando SSH ──────────────────────────────────────────────────────────
 $ssh_opts = "-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"

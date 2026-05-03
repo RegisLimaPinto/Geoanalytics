@@ -3,15 +3,22 @@
 # GeoAnalytics — Deploy Script
 # Uso: bash deploy.sh [--rollback]
 #
-# O que este script FAZ:
+# Uso:
+#   bash deploy.sh            — deploy normal
+#   bash deploy.sh --rollback — reverte para o commit anterior
+#   bash deploy.sh --force    — força rebuild mesmo sem mudanças
+#   bash deploy.sh --clean    — limpa VPS sem fazer deploy
+#
+# O que o deploy FAZ:
 #   - git pull (branch main)
 #   - rebuild apenas backend e frontend
 #   - preserva postgis e geoserver (dados nunca são apagados)
 #   - cria backup do .env antes de qualquer coisa
-#   - exibe logs resumidos após subir
+#   - limpa containers/imagens/volumes/cache Docker após subir
+#   - exibe espaço livre em disco no final
 #
 # O que NÃO faz:
-#   - NÃO apaga volumes do banco
+#   - NÃO apaga volumes nomeados do banco (postgis_data, geoserver_data)
 #   - NÃO derruba postgis/geoserver
 #   - NÃO usa --force nem --no-verify
 # =============================================================================
@@ -52,6 +59,19 @@ if [[ "${1:-}" == "--rollback" ]]; then
     git checkout "$PREV_COMMIT" -- backend/ frontend/
     docker compose up -d --build --no-deps backend frontend
     ok "Rollback concluído para $PREV_COMMIT"
+    exit 0
+fi
+
+# ── Limpeza isolada (sem deploy) ───────────────────────────────────────────────
+if [[ "${1:-}" == "--clean" ]]; then
+    warn "Modo LIMPEZA ISOLADA ativado (sem deploy)"
+    docker container prune -f
+    docker image prune -a -f
+    docker volume prune -f
+    docker network prune -f
+    docker builder prune -f
+    DISK_FREE=$(df -h / | awk 'NR==2 {print $4}')
+    ok "Limpeza concluída. Espaço livre: $DISK_FREE"
     exit 0
 fi
 
@@ -121,9 +141,38 @@ done
 log "Últimas linhas de log do backend:"
 docker compose logs --tail=20 backend 2>&1 | tee -a "$LOG_FILE"
 
-# ── Limpeza de imagens antigas ─────────────────────────────────────────────────
-log "Removendo imagens Docker não utilizadas..."
-docker image prune -f >> "$LOG_FILE" 2>&1
+# ── Limpeza da VPS ────────────────────────────────────────────────────────────
+log "Iniciando limpeza da VPS..."
+
+# Containers parados (exceto os do projeto)
+log "  Removendo containers parados..."
+docker container prune -f >> "$LOG_FILE" 2>&1
+
+# Imagens sem tag e camadas intermediárias (build cache)
+log "  Removendo imagens não utilizadas..."
+docker image prune -a -f >> "$LOG_FILE" 2>&1
+
+# Volumes anônimos não ligados a nenhum container
+# ATENÇÃO: volumes nomeados (postgis_data, geoserver_data) são preservados
+log "  Removendo volumes anônimos não utilizados..."
+docker volume prune -f >> "$LOG_FILE" 2>&1
+
+# Redes não utilizadas
+log "  Removendo redes não utilizadas..."
+docker network prune -f >> "$LOG_FILE" 2>&1
+
+# Build cache do Docker BuildKit
+log "  Limpando build cache..."
+docker builder prune -f >> "$LOG_FILE" 2>&1
+
+# Logs de deploy antigos (mantém últimos 10)
+log "  Rotacionando backups de .env antigos (mantém últimos 10)..."
+ls -t "$BACKUP_DIR"/.env.bak.* 2>/dev/null | tail -n +11 | xargs -r rm -f
+
+# Espaço em disco após limpeza
+DISK_FREE=$(df -h / | awk 'NR==2 {print $4}')
+log "  Espaço livre em disco após limpeza: $DISK_FREE"
+ok "Limpeza da VPS concluída"
 
 ok "========== Deploy finalizado em $(date '+%Y-%m-%d %H:%M:%S') =========="
 log "Commit deployado: $NEW_COMMIT"
