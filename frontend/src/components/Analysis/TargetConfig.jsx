@@ -56,9 +56,25 @@ export default function TargetConfig({ config, onChange, onRun, loading, token }
 
       {/* Bounding Box */}
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-2">
-          Área de Interesse (Bounding Box)
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-medium text-slate-400">
+            Área de Interesse (Bounding Box)
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('geo_analysis_config')
+              window.location.reload()
+            }}
+            className="text-xs text-slate-500 hover:text-amber-400 transition"
+            title="Limpar bbox/pontos salvos e voltar ao padrão"
+          >
+            Resetar
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mb-2">
+          Use a ferramenta <span className="text-cyan-400">Desenhar Área</span> no mapa ou edite manualmente abaixo.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {[
             ['lonMin', 'Lon Mín'],
