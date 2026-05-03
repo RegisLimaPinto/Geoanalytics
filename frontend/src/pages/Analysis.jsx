@@ -195,8 +195,36 @@ export default function Analysis() {
       {/* Mapa principal */}
       <div className="flex-1 relative">
 
-        {/* Toolbar de ferramentas do mapa */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg">
+        {/* Botoes de acao grandes (canto superior direito do mapa) */}
+        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setMapMode(mapMode === 'add-target' ? 'view' : 'add-target')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold shadow-xl border transition-all ${
+              mapMode === 'add-target'
+                ? 'bg-amber-500 text-slate-900 border-amber-400 ring-4 ring-amber-500/30'
+                : 'bg-slate-900/95 text-amber-400 border-amber-500/60 hover:bg-amber-500/20 backdrop-blur'
+            }`}
+          >
+            <MapPinIcon className="w-5 h-5" />
+            {mapMode === 'add-target' ? 'Cancelar (Esc)' : 'Adicionar Ponto'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapMode(mapMode === 'draw-bbox' ? 'view' : 'draw-bbox')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold shadow-xl border transition-all ${
+              mapMode === 'draw-bbox'
+                ? 'bg-cyan-500 text-slate-900 border-cyan-400 ring-4 ring-cyan-500/30'
+                : 'bg-slate-900/95 text-cyan-400 border-cyan-500/60 hover:bg-cyan-500/20 backdrop-blur'
+            }`}
+          >
+            <Square2StackIcon className="w-5 h-5" />
+            {mapMode === 'draw-bbox' ? 'Cancelar (Esc)' : 'Desenhar Area'}
+          </button>
+        </div>
+
+        {/* Toolbar antigo (centro - oculto em telas pequenas) */}
+        <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 z-10 gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg">
           {[
             { id: 'view', icon: CursorArrowRaysIcon, label: 'Mover' },
             { id: 'draw-bbox', icon: Square2StackIcon, label: 'Desenhar Area' },
