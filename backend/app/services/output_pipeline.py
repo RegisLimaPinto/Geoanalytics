@@ -333,13 +333,26 @@ def generate_pdf_report(
         fig.add_artist(plt.Rectangle((0, 0.95), 1, 0.05, facecolor=ACCENT, transform=fig.transFigure))
 
         y = 0.85
-        ax.text(0.08, y, title, fontsize=22, fontweight="bold", color=TXT, transform=ax.transAxes)
-        ax.text(0.08, y - 0.05, f"Commodity-alvo: {commodity}",
-                fontsize=12, color=TXT_MUTED, transform=ax.transAxes)
-        # Linha separadora
-        ax.plot([0.08, 0.92], [y - 0.08, y - 0.08], color=BORDER, lw=1, transform=ax.transAxes)
+        # Quebra titulo se contiver " — " (em-dash) para evitar overflow
+        if " — " in title:
+            main, sub = title.split(" — ", 1)
+        else:
+            main, sub = title, ""
+        ax.text(0.08, y, main, fontsize=20, fontweight="bold", color=TXT,
+                transform=ax.transAxes, wrap=True)
+        if sub:
+            ax.text(0.08, y - 0.06, sub, fontsize=15, fontweight="bold", color=ACCENT,
+                    transform=ax.transAxes, wrap=True)
+            ax.text(0.08, y - 0.11, f"Commodity-alvo: {commodity}",
+                    fontsize=11, color=TXT_MUTED, transform=ax.transAxes)
+            sep_y = y - 0.14
+        else:
+            ax.text(0.08, y - 0.05, f"Commodity-alvo: {commodity}",
+                    fontsize=11, color=TXT_MUTED, transform=ax.transAxes)
+            sep_y = y - 0.08
+        ax.plot([0.08, 0.92], [sep_y, sep_y], color=BORDER, lw=1, transform=ax.transAxes)
 
-        y -= 0.15
+        y = sep_y - 0.06
         for label_text, val in [
             ("BBox lon:", f"{bbox['lonMin']:.3f}° \u2192 {bbox['lonMax']:.3f}°"),
             ("BBox lat:", f"{bbox['latMin']:.3f}° \u2192 {bbox['latMax']:.3f}°"),
