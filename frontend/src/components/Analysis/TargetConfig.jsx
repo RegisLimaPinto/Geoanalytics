@@ -1,7 +1,7 @@
-import { PlayIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, PlusIcon, TrashIcon, MapPinIcon, Square2StackIcon } from '@heroicons/react/24/outline'
 import DataUpload from './DataUpload'
 
-export default function TargetConfig({ config, onChange, onRun, loading, token }) {
+export default function TargetConfig({ config, onChange, onRun, loading, token, mapMode, setMapMode }) {
   function updateBbox(key, val) {
     onChange({ ...config, bbox: { ...config.bbox, [key]: parseFloat(val) || 0 } })
   }
@@ -36,6 +36,37 @@ export default function TargetConfig({ config, onChange, onRun, loading, token }
           Pipeline GeoProspecting — {config.commodity}
         </p>
       </div>
+
+      {/* Ferramentas do mapa - sempre visíveis no sidebar */}
+      {setMapMode && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-slate-400">Ferramentas do mapa</p>
+          <button
+            type="button"
+            onClick={() => setMapMode(mapMode === 'add-target' ? 'view' : 'add-target')}
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold border transition-all ${
+              mapMode === 'add-target'
+                ? 'bg-amber-500 text-slate-900 border-amber-400 ring-2 ring-amber-500/40'
+                : 'bg-slate-700/60 text-amber-400 border-amber-500/40 hover:bg-amber-500/10'
+            }`}
+          >
+            <MapPinIcon className="w-4 h-4" />
+            {mapMode === 'add-target' ? 'Cancelar (Esc)' : 'Adicionar Ponto no Mapa'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapMode(mapMode === 'draw-bbox' ? 'view' : 'draw-bbox')}
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold border transition-all ${
+              mapMode === 'draw-bbox'
+                ? 'bg-cyan-500 text-slate-900 border-cyan-400 ring-2 ring-cyan-500/40'
+                : 'bg-slate-700/60 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/10'
+            }`}
+          >
+            <Square2StackIcon className="w-4 h-4" />
+            {mapMode === 'draw-bbox' ? 'Cancelar (Esc)' : 'Desenhar Área no Mapa'}
+          </button>
+        </div>
+      )}
 
       {/* Commodity */}
       <div>

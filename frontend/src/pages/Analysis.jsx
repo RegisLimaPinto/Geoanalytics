@@ -189,6 +189,8 @@ export default function Analysis() {
           onRun={handleRunAnalysis}
           loading={loading}
           token={token}
+          mapMode={mapMode}
+          setMapMode={setMapMode}
         />
       </aside>
 
