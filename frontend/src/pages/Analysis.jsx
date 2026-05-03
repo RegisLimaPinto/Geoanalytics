@@ -160,6 +160,20 @@ export default function Analysis() {
   }, [loading])
 
   async function handleRunAnalysis() {
+    // Valida bbox antes de enviar (evita 422 do backend)
+    const b = config.bbox
+    const dLon = (b.lonMax ?? 0) - (b.lonMin ?? 0)
+    const dLat = (b.latMax ?? 0) - (b.latMin ?? 0)
+    if (dLon <= 0 || dLat <= 0 || dLon < 0.01 || dLat < 0.01) {
+      showToast('Defina a area de interesse antes (clique "Desenhar Area" e arraste no mapa)', 'cyan')
+      setMapMode('draw-bbox')
+      return
+    }
+    if (!config.targets || config.targets.length === 0) {
+      showToast('Adicione pelo menos 1 ponto alvo no mapa', 'amber')
+      setMapMode('add-target')
+      return
+    }
     setLoading(true)
     setNoCredits(false)
     try {
@@ -169,6 +183,12 @@ export default function Analysis() {
         body: JSON.stringify(config),
       })
       if (res.status === 402) { setNoCredits(true); return }
+      if (res.status === 422) {
+        const err = await res.json().catch(() => null)
+        console.error('[Analysis] 422 validation', err)
+        showToast('Dados invalidos: verifique area e pontos no mapa', 'amber')
+        return
+      }
       if (!res.ok) throw new Error('Backend error')
       const data = await res.json()
       navigate(`/results?job_id=${data.job_id}`)
