@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Rectangle, CircleMarker, Tooltip, Circle, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -30,31 +30,39 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
   const [hover, setHover] = useState(null)
   const [confirmed, setConfirmed] = useState(null) // bbox flash
 
+  // Refs garantem que o handler sempre lê os valores mais recentes
+  const modeRef = useRef(mode)
+  const onBboxChangeRef = useRef(onBboxChange)
+  const onTargetAddRef = useRef(onTargetAdd)
+  modeRef.current = mode
+  onBboxChangeRef.current = onBboxChange
+  onTargetAddRef.current = onTargetAdd
+
   useMapEvents({
     click(e) {
       const { lat, lng } = e.latlng
-      if (mode === 'draw-bbox') {
-        if (!firstClick) {
-          setFirstClick({ lat, lng })
-        } else {
+      const currentMode = modeRef.current
+      if (currentMode === 'draw-bbox') {
+        setFirstClick(prev => {
+          if (!prev) return { lat, lng }
           const newBbox = {
-            lonMin: parseFloat(Math.min(firstClick.lng, lng).toFixed(4)),
-            latMin: parseFloat(Math.min(firstClick.lat, lat).toFixed(4)),
-            lonMax: parseFloat(Math.max(firstClick.lng, lng).toFixed(4)),
-            latMax: parseFloat(Math.max(firstClick.lat, lat).toFixed(4)),
+            lonMin: parseFloat(Math.min(prev.lng, lng).toFixed(4)),
+            latMin: parseFloat(Math.min(prev.lat, lat).toFixed(4)),
+            lonMax: parseFloat(Math.max(prev.lng, lng).toFixed(4)),
+            latMax: parseFloat(Math.max(prev.lat, lat).toFixed(4)),
           }
           setConfirmed(newBbox)
           setTimeout(() => setConfirmed(null), 800)
-          onBboxChange(newBbox)
-          setFirstClick(null)
+          onBboxChangeRef.current(newBbox)
           setHover(null)
-        }
-      } else if (mode === 'add-target') {
-        onTargetAdd({ lon: parseFloat(lng.toFixed(5)), lat: parseFloat(lat.toFixed(5)) })
+          return null
+        })
+      } else if (currentMode === 'add-target') {
+        onTargetAddRef.current({ lon: parseFloat(lng.toFixed(5)), lat: parseFloat(lat.toFixed(5)) })
       }
     },
     mousemove(e) {
-      if (mode === 'draw-bbox' && firstClick) setHover(e.latlng)
+      if (modeRef.current === 'draw-bbox') setHover(e.latlng)
     },
   })
 
@@ -117,13 +125,13 @@ export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', on
         <MapInteraction mode={mode} onBboxChange={onBboxChange} onTargetAdd={onTargetAdd} />
       )}
 
-      {/* Bounding box da area de analise - fill mais visivel */}
+      {/* Bounding box da area de analise - fill mais visivel, nao-interativa para nao bloquear cliques */}
       <Rectangle
         bounds={[[bbox.latMin, bbox.lonMin], [bbox.latMax, bbox.lonMax]]}
-        pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.10 }}
+        pathOptions={{ color: '#f59e0b', weight: 2, dashArray: '6 5', fill: true, fillColor: '#f59e0b', fillOpacity: 0.10, interactive: false }}
       />
 
-      {/* Raio de analise por alvo */}
+      {/* Raio de analise por alvo - nao-interativo */}
       {targets.map(t => (
         <Circle
           key={`radius-${t.id}`}
@@ -133,6 +141,7 @@ export default function GeoMap({ bbox, targets, radiusKm = 20, mode = 'view', on
             color: '#f59e0b', weight: 1, dashArray: '5 4',
             fill: true, fillColor: '#f59e0b',
             fillOpacity: t.psiScore ? Math.max(0.05, (t.psiScore ?? 0.5) * 0.18) : 0.07,
+            interactive: false,
           }}
         />
       ))}
