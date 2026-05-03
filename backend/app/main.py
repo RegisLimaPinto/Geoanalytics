@@ -40,8 +40,17 @@ app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"[VALIDATION 422] {request.method} {request.url.path} -> {exc.errors()}", flush=True)
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    errors = exc.errors()
+    print(f"[VALIDATION 422] {request.method} {request.url.path} -> {errors}", flush=True)
+    # Sanitiza para JSON (remove objetos nao-serializaveis como ValueError em 'ctx')
+    safe = []
+    for e in errors:
+        safe.append({
+            "loc": list(e.get("loc", [])),
+            "msg": str(e.get("msg", "")),
+            "type": str(e.get("type", "")),
+        })
+    return JSONResponse(status_code=422, content={"detail": safe})
 
 
 @app.get("/api/health")
