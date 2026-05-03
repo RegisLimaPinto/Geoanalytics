@@ -198,7 +198,7 @@ export default function Analysis() {
       <div className="flex-1 relative">
 
         {/* Botoes de acao grandes (canto superior direito do mapa) */}
-        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+        <div className="absolute top-4 right-4 flex flex-col gap-2" style={{ zIndex: 1100 }}>
           <button
             type="button"
             onClick={() => setMapMode(mapMode === 'add-target' ? 'view' : 'add-target')}
@@ -226,7 +226,7 @@ export default function Analysis() {
         </div>
 
         {/* Toolbar antigo (centro - oculto em telas pequenas) */}
-        <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 z-10 gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg">
+        <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg" style={{ zIndex: 1100 }}>
           {[
             { id: 'view', icon: CursorArrowRaysIcon, label: 'Mover' },
             { id: 'draw-bbox', icon: Square2StackIcon, label: 'Desenhar Area' },
@@ -260,23 +260,23 @@ export default function Analysis() {
 
         {/* Toast de confirmacao */}
         {toast && (
-          <div className={`absolute bottom-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-lg text-xs font-medium backdrop-blur shadow-lg border transition-all ${
+          <div className={`absolute bottom-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-xs font-medium backdrop-blur shadow-lg border transition-all ${
             toast.color === 'cyan'
               ? 'bg-cyan-900/95 border-cyan-500/50 text-cyan-300'
               : 'bg-amber-900/95 border-amber-500/50 text-amber-300'
-          }`}>
+          }`} style={{ zIndex: 1100 }}>
             {toast.msg}
           </div>
         )}
 
         {/* Instrucao contextual */}
         {mapMode === 'draw-bbox' && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-cyan-900/90 border border-cyan-500/40 text-cyan-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur">
-            Clique no 1o canto da area, depois no 2o canto
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-cyan-900/90 border border-cyan-500/40 text-cyan-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur" style={{ zIndex: 1100 }}>
+            Clique e arraste para desenhar a area
           </div>
         )}
         {mapMode === 'add-target' && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-amber-900/90 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur">
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-900/90 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur" style={{ zIndex: 1100 }}>
             Clique no mapa para adicionar pontos (Esc ou Mover para sair)
           </div>
         )}
