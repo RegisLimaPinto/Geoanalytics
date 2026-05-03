@@ -99,6 +99,7 @@ export default function Analysis() {
   const [noCredits, setNoCredits] = useState(false)
   const [mapMode, setMapMode] = useState('view')
   const [toast, setToast] = useState(null)
+  const [bboxWarning, setBboxWarning] = useState(null)
   const navigate = useNavigate()
   const { token } = useAuth()
 
@@ -195,6 +196,11 @@ export default function Analysis() {
       }
       if (!res.ok) throw new Error('Backend error')
       const data = await res.json()
+      // Se o bbox foi ajustado, atualiza config local e mostra aviso persistente
+      if (data.bbox_adjusted && data.final_bbox) {
+        setConfig(c => ({ ...c, bbox: data.final_bbox }))
+        setBboxWarning(data.bbox_warning || 'Área de análise ajustada automaticamente com base nos dados fornecidos.')
+      }
       navigate(`/results?job_id=${data.job_id}`)
     } catch {
       navigate('/results?demo=true')
@@ -281,6 +287,20 @@ export default function Analysis() {
             )
           })}
         </div>
+
+        {/* Aviso de ajuste automático de área */}
+        {bboxWarning && (
+          <div
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-[1200] flex items-start gap-2 bg-amber-950/95 border border-amber-500/50 text-amber-300 text-xs px-4 py-2.5 rounded-xl backdrop-blur shadow-lg max-w-sm w-[calc(100%-2rem)]"
+            style={{ zIndex: 1200 }}
+          >
+            <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+            </svg>
+            <span className="flex-1 leading-relaxed">{bboxWarning}</span>
+            <button onClick={() => setBboxWarning(null)} className="text-amber-500 hover:text-amber-300 flex-shrink-0 ml-1">✕</button>
+          </div>
+        )}
 
         {/* Toast de confirmacao */}
         {toast && (

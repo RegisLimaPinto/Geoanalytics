@@ -41,7 +41,7 @@ const LAYERS = [
 ]
 
 export default function DataUpload({ config, token }) {
-  const [states, setStates] = useState({}) // key → { status: idle|loading|ok|error, info }
+  const [states, setStates] = useState({}) // key → { status: idle|loading|ok|error, info, dataBbox }
   const inputRefs = useRef({})
 
   const setLayerState = (key, val) =>
@@ -68,10 +68,36 @@ export default function DataUpload({ config, token }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Erro no upload')
+
+      // Verifica se os dados estão dentro da área configurada
+      let bboxWarning = null
+      if (data.data_bbox && config?.bbox) {
+        const db = data.data_bbox
+        const ub = config.bbox
+        // Calcula sobreposição simples no cliente para feedback imediato
+        const ix1 = Math.max(ub.lonMin, db.lonMin)
+        const iy1 = Math.max(ub.latMin, db.latMin)
+        const ix2 = Math.min(ub.lonMax, db.lonMax)
+        const iy2 = Math.min(ub.latMax, db.latMax)
+        const interArea = ix2 > ix1 && iy2 > iy1 ? (ix2 - ix1) * (iy2 - iy1) : 0
+        const areaA = (ub.lonMax - ub.lonMin) * (ub.latMax - ub.latMin)
+        const overlap = areaA > 0 ? interArea / areaA : 0
+        if (overlap < 0.20) {
+          bboxWarning = `Dados fora da área selecionada (sobreposição ${Math.round(overlap * 100)}%). A área será ajustada ao executar.`
+        }
+      }
+
+      const extentInfo = data.data_bbox
+        ? `${data.data_bbox.lonMin.toFixed(2)}–${data.data_bbox.lonMax.toFixed(2)} / ${data.data_bbox.latMin.toFixed(2)}–${data.data_bbox.latMax.toFixed(2)}`
+        : null
+
       setLayerState(layerKey, {
         status: 'ok',
         info: `${data.shape[0]}×${data.shape[1]} px · min ${data.min} / max ${data.max}`,
         filename: data.filename,
+        dataBbox: data.data_bbox ?? null,
+        extentInfo,
+        bboxWarning,
       })
     } catch (e) {
       setLayerState(layerKey, { status: 'error', info: e.message })
@@ -153,7 +179,15 @@ export default function DataUpload({ config, token }) {
                   </div>
 
                   {isOk && (
-                    <p className="text-[10px] text-emerald-500 mt-0.5 truncate">{state.filename} · {state.info}</p>
+                    <div className="mt-0.5 space-y-0.5">
+                      <p className="text-[10px] text-emerald-500 truncate">{state.filename} · {state.info}</p>
+                      {state.extentInfo && (
+                        <p className="text-[9px] text-slate-500 font-mono">ext: {state.extentInfo}</p>
+                      )}
+                      {state.bboxWarning && (
+                        <p className="text-[9px] text-amber-400 leading-tight">{state.bboxWarning}</p>
+                      )}
+                    </div>
                   )}
                   {isErr && (
                     <p className="text-[10px] text-rose-400 mt-0.5 line-clamp-2">{state.info}</p>

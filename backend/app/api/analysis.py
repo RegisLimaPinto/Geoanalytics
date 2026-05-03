@@ -42,7 +42,13 @@ from app.models.job import AnalysisJob
 from app.models.payment import UserCredits
 from app.models.user import User
 from app.schemas.geo_schemas import AnalysisConfig, AnalysisResult
-from app.services.layer_parser import LAYER_KEYS, parse_uploaded_file
+from app.services.layer_parser import (
+    LAYER_KEYS,
+    parse_uploaded_file,
+    detect_bbox_from_csv,
+    detect_bbox_from_geotiff,
+    validate_spatial_consistency,
+)
 from app.services.psi_index import run_pipeline
 
 router = APIRouter()
@@ -84,9 +90,12 @@ def _load_map(job_id: str, ext: str) -> bytes:
     except FileNotFoundError:
         return b""
 
-# Uploaded layers keyed by session token hash → {internal_key: np.ndarray}
+# Uploaded layers keyed by user id → {internal_key: np.ndarray}
 # Stored as lists (serializable for JSON) only after analysis starts
 _uploaded_layers: dict[str, dict[str, Any]] = {}
+
+# Raw data bboxes keyed by user id → {layer_key: (lonMin, latMin, lonMax, latMax)}
+_uploaded_bboxes: dict[str, dict[str, tuple]] = {}
 
 
 def _check_and_consume_credit(user: User, db: Session):
@@ -136,6 +145,17 @@ async def upload_layer(
     lats_1d = np.arange(bbox["latMin"], bbox["latMax"], resolution)
     nx, ny = len(lats_1d), len(lons_1d)
 
+    # Detecta bbox real dos dados ANTES de interpolar para o grid
+    ext = (file.filename or "").lower().rsplit(".", 1)[-1]
+    data_bbox: tuple | None = None
+    try:
+        if ext in ("tif", "tiff"):
+            data_bbox = detect_bbox_from_geotiff(content)
+        elif ext == "csv":
+            data_bbox = detect_bbox_from_csv(content)
+    except Exception:
+        data_bbox = None  # falha graciosamente; validação ocorre no /run
+
     try:
         internal_key, arr = parse_uploaded_file(
             layer_key, file.filename or "upload", content, bbox, nx, ny
@@ -148,7 +168,12 @@ async def upload_layer(
         _uploaded_layers[uid] = {}
     _uploaded_layers[uid][internal_key] = arr
 
-    return {
+    if data_bbox is not None:
+        if uid not in _uploaded_bboxes:
+            _uploaded_bboxes[uid] = {}
+        _uploaded_bboxes[uid][layer_key] = data_bbox
+
+    response: dict[str, Any] = {
         "ok": True,
         "layer": internal_key,
         "layer_key": layer_key,
@@ -157,12 +182,22 @@ async def upload_layer(
         "min": round(float(arr.min()), 4),
         "max": round(float(arr.max()), 4),
     }
+    if data_bbox is not None:
+        response["data_bbox"] = {
+            "lonMin": round(data_bbox[0], 6),
+            "latMin": round(data_bbox[1], 6),
+            "lonMax": round(data_bbox[2], 6),
+            "latMax": round(data_bbox[3], 6),
+        }
+    return response
 
 
 @router.delete("/upload-layer", response_model=dict)
 async def clear_uploaded_layers(current_user: User = Depends(get_current_user)):
     """Remove todos os arquivos carregados pelo usuário atual."""
-    _uploaded_layers.pop(str(current_user.id), None)
+    uid = str(current_user.id)
+    _uploaded_layers.pop(uid, None)
+    _uploaded_bboxes.pop(uid, None)
     return {"ok": True}
 
 
@@ -188,8 +223,37 @@ async def run_analysis(
 
     config_dict = config.model_dump()
 
+    # ── Validação de consistência espacial ─────────────────────────────────────
+    uid = str(current_user.id)
+    stored_bboxes = _uploaded_bboxes.get(uid, {})
+    bbox_warning: str | None = None
+    bbox_adjusted = False
+
+    if stored_bboxes:
+        user_bbox_tuple = (
+            config.bbox.lonMin,
+            config.bbox.latMin,
+            config.bbox.lonMax,
+            config.bbox.latMax,
+        )
+        spatial = validate_spatial_consistency(
+            list(stored_bboxes.values()),
+            user_bbox_tuple,
+            min_overlap=0.20,
+        )
+        if spatial["adjusted"]:
+            fb = spatial["final_bbox"]
+            config_dict["bbox"] = {
+                "lonMin": fb[0],
+                "latMin": fb[1],
+                "lonMax": fb[2],
+                "latMax": fb[3],
+            }
+            bbox_warning = spatial["warning"]
+            bbox_adjusted = True
+
     # Inject uploaded layers into config
-    user_layers = _uploaded_layers.get(str(current_user.id), {})
+    user_layers = _uploaded_layers.get(uid, {})
     if user_layers:
         config_dict["uploaded_layers"] = {k: v.tolist() for k, v in user_layers.items()}
 
@@ -227,7 +291,12 @@ async def run_analysis(
     except Exception:
         pass  # fallback gracioso — ainda está em memória
 
-    return {"job_id": job_id, "status": "completed"}
+    response: dict[str, Any] = {"job_id": job_id, "status": "completed"}
+    if bbox_adjusted:
+        response["bbox_adjusted"] = True
+        response["bbox_warning"] = bbox_warning
+        response["final_bbox"] = config_dict["bbox"]
+    return response
 
 
 @router.get("/{job_id}/results", response_model=AnalysisResult)
