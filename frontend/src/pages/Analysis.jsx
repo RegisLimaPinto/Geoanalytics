@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   bbox: { lonMin: -41.95, latMin: -4.75, lonMax: -40.30, latMax: -3.90 },
   resolution: 0.02,
   commodity: 'OURO',
-  radiusKm: 20,
+  radiusKm: 5,
   targets: [],
 }
 

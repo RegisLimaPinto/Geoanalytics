@@ -36,7 +36,7 @@ class AnalysisConfig(BaseModel):
     bbox: BBox
     resolution: float = Field(default=0.02, ge=0.005, le=0.1)
     commodity: str = "OURO"
-    radiusKm: float = Field(default=20.0, ge=1, le=100)
+    radiusKm: float = Field(default=5.0, ge=1, le=100)
     targets: list[TargetIn] = Field(default=[], max_length=20)
 
     @field_validator("commodity")
@@ -79,7 +79,7 @@ class AnalysisResult(BaseModel):
     layers: list[LayerSummary]
     ternary: list[TernaryPoint]
     topZones: int
-    radiusKm: float = 20.0
+    radiusKm: float = 5.0
     zones: list[dict] = []
     subtargets: list[dict] = []
     targetStats: list[dict] = []

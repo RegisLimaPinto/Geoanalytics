@@ -253,7 +253,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     bbox = config["bbox"]
     resolution = config.get("resolution", 0.02)
     commodity = config.get("commodity", "OURO").upper()
-    radius_km = config.get("radiusKm", 20)
+    radius_km = config.get("radiusKm", 5)
     targets_input = config.get("targets", [])
 
     # Build coordinate grids

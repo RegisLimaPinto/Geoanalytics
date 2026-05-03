@@ -20,7 +20,7 @@ const DEMO = {
   jobId: 'demo-synthetic',
   createdAt: new Date().toISOString(),
   bbox: { lonMin: -41.95, latMin: -4.75, lonMax: -40.30, latMax: -3.90 },
-  radiusKm: 20,
+  radiusKm: 5,
   targets: [
     { id: 'Z1', lon: -40.57, lat: -4.65, psiScore: 0.873, priority: 1, cluster: 'A', area_km2: 42.3 },
     { id: 'Z2', lon: -41.58, lat: -4.30, psiScore: 0.718, priority: 2, cluster: 'B', area_km2: 31.1 },
