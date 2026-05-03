@@ -129,6 +129,13 @@ export default function Analysis() {
     showToast(`Ponto ${newId || ''} adicionado: ${lon.toFixed(3)}, ${lat.toFixed(3)}`, 'amber')
   }
 
+  // Click em modo view: dica de como ativar adicao de ponto
+  function handleViewClick() {
+    if (mapMode === 'view') {
+      showToast('Selecione "Adicionar Ponto" ou "Desenhar Area" no topo do mapa primeiro', 'amber')
+    }
+  }
+
   // Esc sai do modo de desenho/adição
   useEffect(() => {
     function onKey(e) {
@@ -194,25 +201,31 @@ export default function Analysis() {
             { id: 'view', icon: CursorArrowRaysIcon, label: 'Mover' },
             { id: 'draw-bbox', icon: Square2StackIcon, label: 'Desenhar Area' },
             { id: 'add-target', icon: MapPinIcon, label: 'Adicionar Ponto' },
-          ].map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              onClick={() => setMapMode(id)}
-              title={label}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                mapMode === id
-                  ? id === 'draw-bbox'
-                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                    : id === 'add-target'
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                    : 'bg-slate-700 text-white border border-slate-600'
-                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          ))}
+          ].map(({ id, icon: Icon, label }) => {
+            const isActive = mapMode === id
+            const isHighlight = mapMode === 'view' && id === 'add-target' && config.targets.length === 0
+            return (
+              <button
+                key={id}
+                onClick={() => setMapMode(id)}
+                title={label}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  isActive
+                    ? id === 'draw-bbox'
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                      : id === 'add-target'
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-slate-700 text-white border border-slate-600'
+                    : isHighlight
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/40 animate-pulse'
+                    : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Toast de confirmacao */}
