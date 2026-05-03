@@ -42,6 +42,7 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
     click(e) {
       const { lat, lng } = e.latlng
       const currentMode = modeRef.current
+      console.log('[GeoMap] click', { lat, lng, mode: currentMode })
       if (currentMode === 'draw-bbox') {
         setFirstClick(prev => {
           if (!prev) return { lat, lng }

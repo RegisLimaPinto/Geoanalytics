@@ -119,14 +119,24 @@ export default function Analysis() {
   }
 
   function handleTargetAdd({ lon, lat }) {
+    console.log('[Analysis] target add', { lon, lat })
     let newId
     setConfig(c => {
       newId = `T${c.targets.length + 1}`
       return { ...c, targets: [...c.targets, { id: newId, lon, lat }] }
     })
-    setMapMode('view')
-    showToast(`Ponto adicionado: ${lon.toFixed(3)}, ${lat.toFixed(3)}`, 'amber')
+    // mantém modo add-target ativo para permitir múltiplos cliques (sai com Esc ou botão)
+    showToast(`Ponto ${newId || ''} adicionado: ${lon.toFixed(3)}, ${lat.toFixed(3)}`, 'amber')
   }
+
+  // Esc sai do modo de desenho/adição
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape' && mapMode !== 'view') setMapMode('view')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mapMode])
 
   // Avança os steps de loading simulando o progresso real
   useEffect(() => {
@@ -224,7 +234,7 @@ export default function Analysis() {
         )}
         {mapMode === 'add-target' && (
           <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 bg-amber-900/90 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur">
-            Clique no mapa para adicionar um ponto de interesse
+            Clique no mapa para adicionar pontos (Esc ou Mover para sair)
           </div>
         )}
 
