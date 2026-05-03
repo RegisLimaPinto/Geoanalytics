@@ -94,11 +94,14 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
           <button
             type="button"
             onClick={() => {
-              localStorage.removeItem('geo_analysis_config')
-              window.location.reload()
+              onChange({
+                ...config,
+                bbox: { lonMin: 0, latMin: 0, lonMax: 0, latMax: 0 },
+              })
+              if (setMapMode) setMapMode('draw-bbox')
             }}
-            className="text-xs text-slate-500 hover:text-amber-400 transition"
-            title="Limpar bbox/pontos salvos e voltar ao padrão"
+            className="text-xs text-amber-400 hover:text-amber-300 transition font-medium"
+            title="Zerar coordenadas e ativar Desenhar Área no mapa"
           >
             Resetar
           </button>
