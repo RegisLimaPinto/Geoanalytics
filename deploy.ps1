@@ -12,11 +12,10 @@ param(
 )
 
 # ── Configuração ───────────────────────────────────────────────────────────────
-# Edite estas variáveis com os dados do seu servidor
-$SERVER_USER = "ubuntu"                      # usuário SSH
-$SERVER_HOST = "mineracaoanalytics.cloud"    # IP ou domínio do servidor
-$SERVER_PATH = "/opt/geoanalytics"           # diretório do projeto no servidor
-$SSH_KEY     = "$HOME\.ssh\id_rsa"           # chave SSH (opcional)
+$SERVER_USER = "root"                        # usuário SSH
+$SERVER_HOST = "72.60.7.53"                  # IP do servidor
+$SERVER_PATH = "/srv/geoanalytics"           # diretório do projeto no servidor
+$SSH_KEY     = "$HOME\.ssh\id_rsa"           # chave SSH
 
 # ── Funções ────────────────────────────────────────────────────────────────────
 function Write-Step { param($msg) Write-Host "[deploy] $msg" -ForegroundColor Cyan }
