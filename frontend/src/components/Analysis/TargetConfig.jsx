@@ -7,6 +7,7 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
   }
 
   function addTarget() {
+    if (config.targets.length >= 5) return
     const newId = `T${config.targets.length + 1}`
     onChange({
       ...config,
@@ -178,11 +179,12 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-xs font-medium text-slate-400">
-            Pontos de Interesse ({config.targets.length})
+            Pontos de Interesse ({config.targets.length}/5)
           </label>
           <button
             onClick={addTarget}
-            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+            disabled={config.targets.length >= 5}
+            className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <PlusIcon className="w-3.5 h-3.5" />
             Adicionar

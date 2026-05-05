@@ -121,8 +121,13 @@ export default function Analysis() {
 
   function handleTargetAdd({ lon, lat }) {
     console.log('[Analysis] target add', { lon, lat })
+    if (config.targets.length >= 5) {
+      showToast('Limite de 5 pontos atingido', 'red')
+      return
+    }
     let newId
     setConfig(c => {
+      if (c.targets.length >= 5) return c
       newId = `T${c.targets.length + 1}`
       return { ...c, targets: [...c.targets, { id: newId, lon, lat }] }
     })
