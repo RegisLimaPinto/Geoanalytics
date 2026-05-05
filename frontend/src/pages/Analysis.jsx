@@ -16,7 +16,14 @@ const DEFAULT_CONFIG = {
 function loadConfig() {
   try {
     const saved = localStorage.getItem('geo_analysis_config')
-    if (saved) return { ...DEFAULT_CONFIG, ...JSON.parse(saved) }
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      // Garante máximo de 5 pontos ao carregar sessão anterior
+      if (parsed.targets && parsed.targets.length > 5) {
+        parsed.targets = parsed.targets.slice(0, 5)
+      }
+      return { ...DEFAULT_CONFIG, ...parsed }
+    }
   } catch {}
   return DEFAULT_CONFIG
 }
