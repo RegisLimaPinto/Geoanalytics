@@ -100,6 +100,7 @@ if [[ "$LOCAL" == "$REMOTE" ]]; then
 fi
 
 git pull origin main
+git reset --hard origin/main
 NEW_COMMIT=$(git rev-parse HEAD)
 ok "Atualizado para commit: $NEW_COMMIT"
 
