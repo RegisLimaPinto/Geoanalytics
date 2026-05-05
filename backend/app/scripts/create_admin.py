@@ -23,6 +23,11 @@ ADMINS = [
         "email": "gleudianoprof@gmail.com",
         "password": "admin@geo2024",
     },
+    {
+        "name": "Gilvan",
+        "email": "gilvan18om@hotmail.com",
+        "password": "admin@geo2024",
+    },
 ]
 
 

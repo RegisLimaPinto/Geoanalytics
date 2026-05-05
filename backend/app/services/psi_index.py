@@ -29,35 +29,51 @@ _PSI_CFG = {
 }
 
 
-# ── Pesos do PSI Index por commodity ─────────────────────────────────────────
+# ── Pesos por commodity + ajuste PSI (plugável) ─────────────────────────────
+# Commodities: ouro, cobre, ferro, prata
+# Chaves: MAG, GRAV, BOUGUER, K, U, Th, GRADIENT
 
-WEIGHTS: dict[str, dict[str, float]] = {
-    # Pesos idênticos ao GeoProspecting_Ouro_Pipeline.ipynb
-    "OURO": {
-        "K":         0.40,   # alteração potássica — indicador primário de Au
-        "GRAD":      0.25,   # gradiente espacial do K — controle estrutural
-        "MAG":       0.15,   # magnetometria — controle litológico
-        "GRAV":      0.10,   # gravimetria — controle crustal
-        "U":         0.05,   # urânio — complementar
-        "Th":        0.05,   # tório — complementar
+COMMODITY_WEIGHTS: dict[str, dict[str, float]] = {
+    "ouro": {
+        "MAG":      0.15,
+        "GRAV":     0.10,
+        "BOUGUER":  0.10,
+        "K":        0.20,
+        "U":        0.08,
+        "Th":       0.07,
+        "GRADIENT": 0.30,
     },
-    "COBRE": {
-        "K":         0.20,
-        "GRAD":      0.20,
-        "MAG":       0.35,
-        "GRAV":      0.15,
-        "U":         0.05,
-        "Th":        0.05,
+    "cobre": {
+        "MAG":      0.20,
+        "GRAV":     0.12,
+        "BOUGUER":  0.13,
+        "K":        0.15,
+        "U":        0.08,
+        "Th":       0.07,
+        "GRADIENT": 0.25,
     },
-    "FERRO": {
-        "K":         0.05,
-        "GRAD":      0.10,
-        "MAG":       0.55,
-        "GRAV":      0.25,
-        "U":         0.03,
-        "Th":        0.02,
+    "ferro": {
+        "MAG":      0.35,
+        "GRAV":     0.25,
+        "BOUGUER":  0.20,
+        "K":        0.03,
+        "U":        0.02,
+        "Th":       0.02,
+        "GRADIENT": 0.13,
+    },
+    "prata": {
+        "MAG":      0.12,
+        "GRAV":     0.10,
+        "BOUGUER":  0.10,
+        "K":        0.22,
+        "U":        0.10,
+        "Th":       0.08,
+        "GRADIENT": 0.28,
     },
 }
+
+# Alias GRADIENT → GRAD (nome interno da camada no pipeline)
+_LAYER_ALIAS: dict[str, str] = {"GRADIENT": "GRAD", "BOUGUER": "GRAV"}
 
 
 def _normalize_layers(layers: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -135,6 +151,78 @@ def _psi_adjust_score(
     field_factor = 1.5 - 0.5 * field
     gradient_factor = 1.0 + gradient
     combined = shielding_factor * 0.4 + field_factor * 0.3 + gradient_factor * 0.3
+    adjusted = base_score * np.tanh(combined)
+    return np.clip(adjusted, 0, 1)
+
+
+# ── Helpers plugáveis ────────────────────────────────────────────────────────
+
+def robust_normalize(arr: np.ndarray) -> np.ndarray:
+    """Normalização min-max robusta para [0, 1]."""
+    lo, hi = arr.min(), arr.max()
+    if hi - lo > 1e-9:
+        return (arr - lo) / (hi - lo)
+    return np.zeros_like(arr)
+
+
+def normalize_commodity_name(commodity: str) -> str:
+    """Retorna o nome canônico (lowercase) da commodity."""
+    _map = {
+        "ouro": "ouro", "gold": "ouro", "au": "ouro",
+        "cobre": "cobre", "copper": "cobre", "cu": "cobre",
+        "ferro": "ferro", "iron": "ferro", "fe": "ferro",
+        "prata": "prata", "silver": "prata", "ag": "prata",
+    }
+    return _map.get(commodity.lower().strip(), "ouro")
+
+
+def compute_weighted_baseline_score(
+    normalized: dict[str, np.ndarray],
+    commodity: str,
+) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
+    """Calcula o score base ponderado por commodity.
+
+    Retorna (base_score, normalized, weights_used).
+    """
+    weights = COMMODITY_WEIGHTS.get(commodity, COMMODITY_WEIGHTS["ouro"])
+    base_score = np.zeros_like(next(iter(normalized.values())))
+    weights_used: dict[str, float] = {}
+
+    for layer, w in weights.items():
+        key = _LAYER_ALIAS.get(layer, layer)
+        if key in normalized:
+            base_score += normalized[key] * w
+            weights_used[layer] = w
+
+    base_score = robust_normalize(base_score)
+    return base_score, normalized, weights_used
+
+
+_COMMODITY_ADJUST_PARAMS: dict[str, dict[str, float]] = {
+    "ouro":  {"shielding": 0.30, "field": 0.30, "gradient": 0.40},
+    "cobre": {"shielding": 0.35, "field": 0.35, "gradient": 0.30},
+    "ferro": {"shielding": 0.50, "field": 0.35, "gradient": 0.15},
+    "prata": {"shielding": 0.30, "field": 0.35, "gradient": 0.35},
+}
+
+
+def psi_adjust_score_by_commodity(
+    base_score: np.ndarray,
+    sigma: np.ndarray,
+    field: np.ndarray,
+    gradient: np.ndarray,
+    commodity: str,
+) -> np.ndarray:
+    """Ajuste não-linear do PSI com fatores específicos por commodity."""
+    params = _COMMODITY_ADJUST_PARAMS.get(commodity, _COMMODITY_ADJUST_PARAMS["ouro"])
+    shielding_factor = 0.5 + 0.5 * sigma
+    field_factor = 1.5 - 0.5 * field
+    gradient_factor = 1.0 + gradient
+    combined = (
+        shielding_factor * params["shielding"]
+        + field_factor   * params["field"]
+        + gradient_factor * params["gradient"]
+    )
     adjusted = base_score * np.tanh(combined)
     return np.clip(adjusted, 0, 1)
 
@@ -254,7 +342,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     resolution = config.get("resolution", 0.02)
     commodity = config.get("commodity", "OURO").upper()
     radius_km = config.get("radiusKm", 5)
-    targets_input = config.get("targets", [])
+    targets_input = config.get("targets", [])[:5]  # máximo 5 pontos por análise
 
     # Build coordinate grids
     lons_1d = np.arange(bbox["lonMin"], bbox["lonMax"], resolution)
@@ -301,9 +389,9 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     grad_max = grad_k.max()
     smoothed["GRAD"] = grad_k / grad_max if grad_max > 1e-9 else grad_k
 
-    # PSI Index base (soma ponderada com camadas suavizadas + GRAD)
-    weights = WEIGHTS.get(commodity, WEIGHTS["OURO"])
-    psi_base = _compute_psi_index(smoothed, weights)
+    # PSI Index base com pesos por commodity
+    commodity_name = normalize_commodity_name(commodity)
+    psi_base, smoothed, weights_used = compute_weighted_baseline_score(smoothed, commodity_name)
 
     # Bônus de desacoplamento: K alto + MAG/GRAV baixos → padrão epitermal/Au
     mag_sm = smoothed.get("MAG", np.zeros_like(psi_base))
@@ -313,16 +401,20 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     bonus = np.where((k_sm > 0.6) & (mag_grav_medio < 0.5), 0.08 * k_sm, 0.0)
     psi_base = np.clip(psi_base + bonus, 0, 1)
 
-    # Re-normalizar o score base
-    psi_min, psi_max = psi_base.min(), psi_base.max()
-    if psi_max - psi_min > 1e-9:
-        psi_base = (psi_base - psi_min) / (psi_max - psi_min)
+    psi_base = robust_normalize(psi_base)
 
-    # GeoPSI v4.0 — ajuste estatístico não-linear
+    # GeoPSI v4.0 — ajuste estatístico não-linear por commodity
     sigma = _compute_shielding_index(smoothed)
     field = _compute_latent_field(sigma, LON, LAT, bbox)
     gradient = _compute_shielding_gradient(sigma)
-    psi = _psi_adjust_score(psi_base, sigma, field, gradient)
+    psi = psi_adjust_score_by_commodity(
+        base_score=psi_base,
+        sigma=sigma,
+        field=field,
+        gradient=smoothed.get("GRAD", gradient),
+        commodity=commodity_name,
+    )
+    psi = robust_normalize(psi)
 
     # Auto-detectar alvos a partir dos top máximos locais do PSI
     # quando o usuário não informou nenhum ponto de interesse
@@ -395,7 +487,8 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "jobId": job_id,
-        "commodity": commodity,
+        "commodity": commodity_name,
+        "weightsUsed": weights_used,
         "dataType": data_type,
         "bbox": bbox,
         "targets": ranked_targets,
