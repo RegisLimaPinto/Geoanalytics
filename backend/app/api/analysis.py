@@ -227,35 +227,36 @@ async def run_analysis(
     """
     _check_and_consume_credit(current_user, db)
 
-    # ── Validação dos limites do plano ─────────────────────────────────────────
-    active_sub = (
-        db.query(Subscription)
-        .filter(
-            Subscription.user_id == current_user.id,
-            Subscription.status == "authorized",
+    # ── Validação dos limites do plano (admin é ilimitado) ────────────────────
+    if current_user.role != "admin":
+        active_sub = (
+            db.query(Subscription)
+            .filter(
+                Subscription.user_id == current_user.id,
+                Subscription.status == "authorized",
+            )
+            .order_by(Subscription.created_at.desc())
+            .first()
         )
-        .order_by(Subscription.created_at.desc())
-        .first()
-    )
-    plano_id = PLAN_SLUG_MAP.get(active_sub.plan_slug, "basico") if active_sub else "avulso"
+        plano_id = PLAN_SLUG_MAP.get(active_sub.plan_slug, "basico") if active_sub else "avulso"
 
-    area_km2 = bbox_area_km2(
-        config.bbox.lonMin,
-        config.bbox.latMin,
-        config.bbox.lonMax,
-        config.bbox.latMax,
-    )
-    validacao = validar_limites_plano(
-        plano_id=plano_id,
-        area_bbox_km2=area_km2,
-        numero_alvos=len(config.targets),
-        raio_alvo_km=config.radiusKm,
-    )
-    if not validacao["aprovado"]:
-        raise HTTPException(
-            status_code=403,
-            detail={"plano": validacao["plano"], "erros": validacao["erros"]},
+        area_km2 = bbox_area_km2(
+            config.bbox.lonMin,
+            config.bbox.latMin,
+            config.bbox.lonMax,
+            config.bbox.latMax,
         )
+        validacao = validar_limites_plano(
+            plano_id=plano_id,
+            area_bbox_km2=area_km2,
+            numero_alvos=len(config.targets),
+            raio_alvo_km=config.radiusKm,
+        )
+        if not validacao["aprovado"]:
+            raise HTTPException(
+                status_code=403,
+                detail={"plano": validacao["plano"], "erros": validacao["erros"]},
+            )
 
     config_dict = config.model_dump()
 
