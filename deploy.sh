@@ -125,7 +125,7 @@ log "Aguardando backend ficar saudável..."
 MAX_TRIES=20
 WAIT=3
 for i in $(seq 1 $MAX_TRIES); do
-    HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health 2>/dev/null || echo "000")
+    HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health 2>/dev/null || echo "000")
     if [[ "$HTTP" == "200" ]]; then
         ok "Backend respondendo (HTTP $HTTP) após ${i}x${WAIT}s"
         break
