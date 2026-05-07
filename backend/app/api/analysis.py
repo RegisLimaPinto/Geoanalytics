@@ -40,6 +40,7 @@ def _get_user_token_or_query(
 from app.database import get_db
 from app.models.job import AnalysisJob
 from app.models.payment import UserCredits
+from app.models.subscription import Subscription
 from app.models.user import User
 from app.schemas.geo_schemas import AnalysisConfig, AnalysisResult
 from app.services.layer_parser import (
@@ -48,6 +49,11 @@ from app.services.layer_parser import (
     detect_bbox_from_csv,
     detect_bbox_from_geotiff,
     validate_spatial_consistency,
+)
+from app.services.plan_config import (
+    PLAN_SLUG_MAP,
+    bbox_area_km2,
+    validar_limites_plano,
 )
 from app.services.psi_index import run_pipeline
 
@@ -220,6 +226,36 @@ async def run_analysis(
     Se o usuário enviou arquivos via /upload-layer, eles substituem as camadas automáticas.
     """
     _check_and_consume_credit(current_user, db)
+
+    # ── Validação dos limites do plano ─────────────────────────────────────────
+    active_sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == current_user.id,
+            Subscription.status == "authorized",
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+    plano_id = PLAN_SLUG_MAP.get(active_sub.plan_slug, "basico") if active_sub else "avulso"
+
+    area_km2 = bbox_area_km2(
+        config.bbox.lonMin,
+        config.bbox.latMin,
+        config.bbox.lonMax,
+        config.bbox.latMax,
+    )
+    validacao = validar_limites_plano(
+        plano_id=plano_id,
+        area_bbox_km2=area_km2,
+        numero_alvos=len(config.targets),
+        raio_alvo_km=config.radiusKm,
+    )
+    if not validacao["aprovado"]:
+        raise HTTPException(
+            status_code=403,
+            detail={"plano": validacao["plano"], "erros": validacao["erros"]},
+        )
 
     config_dict = config.model_dump()
 
