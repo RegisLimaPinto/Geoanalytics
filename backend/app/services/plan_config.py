@@ -20,7 +20,7 @@ PLANOS_PSI: dict[str, dict] = {
         "area_max_km2": 5000,
         "max_alvos": 5,
         "raio_max_alvo_km": 10,
-        "descricao": "5 análises/mês de até 5.000 km², com até 5 alvos.",
+        "descricao": "5 análises mensais de até 5.000 km² cada, com até 5 alvos por análise.",
     },
     "pro": {
         "nome": "Plano Pro",
@@ -29,16 +29,16 @@ PLANOS_PSI: dict[str, dict] = {
         "area_max_km2": 5000,
         "max_alvos": 5,
         "raio_max_alvo_km": 10,
-        "descricao": "15 análises/mês de até 5.000 km², com até 5 alvos.",
+        "descricao": "15 análises mensais de até 5.000 km² cada, com até 5 alvos por análise.",
     },
     "enterprise": {
         "nome": "Plano Enterprise",
         "preco_mensal": 1499.99,
-        "analises_mes": -1,       # -1 = ilimitado
-        "area_max_km2": -1,       # -1 = ilimitado (acima de 5.000 km², custom)
-        "max_alvos": -1,          # -1 = custom/ilimitado
-        "raio_max_alvo_km": -1,   # -1 = custom/ilimitado
-        "descricao": "Análises ilimitadas, área acima de 5.000 km², alvos e raio customizados.",
+        "analises_mes": None,     # None = ilimitado
+        "area_max_km2": 5000,
+        "max_alvos": 5,
+        "raio_max_alvo_km": 10,
+        "descricao": "Análises mensais ilimitadas de até 5.000 km² cada, com até 5 alvos por análise.",
     },
 }
 
@@ -81,25 +81,25 @@ def validar_limites_plano(
     plano = PLANOS_PSI[plano_id]
     erros: list[str] = []
 
-    if plano["area_max_km2"] != -1 and area_bbox_km2 > plano["area_max_km2"]:
+    if plano["area_max_km2"] is not None and area_bbox_km2 > plano["area_max_km2"]:
         erros.append(
             f"Área excedida: {area_bbox_km2:.2f} km². "
             f"Limite do plano: {plano['area_max_km2']} km²."
         )
 
-    if plano["max_alvos"] != -1 and numero_alvos > plano["max_alvos"]:
+    if plano["max_alvos"] is not None and numero_alvos > plano["max_alvos"]:
         erros.append(
             f"Número de alvos excedido: {numero_alvos}. "
             f"Limite do plano: {plano['max_alvos']} alvos."
         )
 
-    if plano["raio_max_alvo_km"] != -1 and raio_alvo_km > plano["raio_max_alvo_km"]:
+    if plano["raio_max_alvo_km"] is not None and raio_alvo_km > plano["raio_max_alvo_km"]:
         erros.append(
             f"Raio de alvo excedido: {raio_alvo_km} km. "
             f"Limite do plano: {plano['raio_max_alvo_km']} km."
         )
 
-    if plano["analises_mes"] != -1 and analises_realizadas_mes >= plano["analises_mes"]:
+    if plano["analises_mes"] is not None and analises_realizadas_mes >= plano["analises_mes"]:
         erros.append(
             f"Cota mensal atingida: {analises_realizadas_mes}/{plano['analises_mes']} análises."
         )

@@ -28,6 +28,21 @@ ADMINS = [
         "email": "gilvan18om@hotmail.com",
         "password": "admin@geo2024",
     },
+    {
+        "name": "Pedro Ale",
+        "email": "pedroale@pedroale.com",
+        "password": "admin@geo2024",
+    },
+]
+
+# Usuários de demonstração (role=user, para enviar a clientes)
+DEMO_USERS = [
+    {
+        "name": "Demo Mineradora",
+        "email": "demo@psianalytics.com.br",
+        "password": "PSI@Demo2025",
+        "plan": "professional",
+    },
 ]
 
 
@@ -58,6 +73,24 @@ def create_admins():
             db.add(admin)
             db.commit()
             print(f"Administrador criado: {adm['email']}  |  senha: {adm['password']}")
+
+        for demo in DEMO_USERS:
+            existing = db.query(User).filter(User.email == demo["email"]).first()
+            if existing:
+                print(f"Usuário demo já existe: {demo['email']}")
+                continue
+
+            user = User(
+                name=demo["name"],
+                email=demo["email"],
+                hashed_password=hash_password(demo["password"]),
+                role="user",
+                plan=demo.get("plan", "professional"),
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            print(f"Usuário demo criado: {demo['email']}  |  senha: {demo['password']}")
     finally:
         db.close()
 

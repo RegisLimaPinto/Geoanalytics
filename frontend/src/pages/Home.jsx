@@ -209,10 +209,42 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-700/60 py-8 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
-          <span>🪨 GeoAnalytics — Análise de Favorabilidade Mineral</span>
-          <span>Metodologia PSI Analytics · Dados Sintéticos para Demonstração · {new Date().getFullYear()}</span>
+      <footer className="border-t border-slate-700/60 py-10 px-4 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-8 mb-6">
+            {/* Marca */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🪨</span>
+                <span className="text-white font-bold text-lg">
+                  Geo<span className="text-amber-400">Analytics</span>
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                Plataforma de análise integrada de favorabilidade exploratória mineral, desenvolvida pela PSI Analytics.
+              </p>
+            </div>
+
+            {/* Contato PSI Analytics */}
+            <div className="text-sm text-slate-400">
+              <p className="text-white font-semibold mb-1">PSI Analytics</p>
+              <p className="text-slate-500 text-xs mb-3">Análise Integrada de Favorabilidade Exploratória</p>
+              <div className="space-y-1 text-xs">
+                <p><span className="text-slate-600">CNPJ:</span> 64.951.708/0001-00</p>
+                <p>
+                  <span className="text-slate-600">Tel:</span>{' '}
+                  <a href="tel:+558698875-0039" className="hover:text-amber-400 transition-colors">(86) 98875-0039</a>
+                  {' / '}
+                  <a href="tel:+5586998012001" className="hover:text-amber-400 transition-colors">(86) 99801-2001</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800 pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
+            <span>© {new Date().getFullYear()} PSI Analytics — Todos os direitos reservados.</span>
+            <span className="text-slate-700">Os resultados são indicativos exploratórios — não constituem laudo geológico ou garantia de reserva mineral.</span>
+          </div>
         </div>
       </footer>
     </div>

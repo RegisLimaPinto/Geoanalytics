@@ -99,6 +99,78 @@ function LoadingOverlay({ step }) {
   )
 }
 
+function DisclaimerModal({ onConfirm, onCancel }) {
+  const [checked, setChecked] = useState(false)
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+      <div className="bg-slate-800 border border-amber-500/30 rounded-2xl p-7 max-w-lg w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl">
+            ⚠
+          </div>
+          <div>
+            <p className="text-white font-bold text-base">Indicativo Metodológico</p>
+            <p className="text-slate-400 text-xs">PSI Analytics — Leia antes de executar a análise</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 text-sm text-slate-300 space-y-3 mb-5 leading-relaxed max-h-64 overflow-y-auto">
+          <p>
+            Os resultados gerados por esta plataforma (<strong className="text-amber-400">PSI Index, mapas de favorabilidade e ranking de alvos</strong>) têm caráter estritamente <strong>indicativo e exploratório</strong>.
+          </p>
+          <p>
+            As informações produzidas pelo pipeline <strong>não constituem</strong>:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-slate-400 pl-2">
+            <li>Laudo geológico ou relatório técnico certificado</li>
+            <li>Estimativa de teor ou reserva mineral</li>
+            <li>Garantia de ocorrência de mineralização</li>
+            <li>Documento substitutivo para licenciamento ou pesquisa mineral junto à ANM</li>
+          </ul>
+          <p>
+            As indicações de favorabilidade são calculadas a partir de dados geofísicos e radiométricos públicos e/ou fornecidos pelo usuário, e são <strong>insuficientes por si só para justificar investimentos em mineração</strong> sem estudos complementares de campo.
+          </p>
+          <p className="text-amber-300/80">
+            A PSI Analytics não se responsabiliza por decisões de investimento, pesquisa mineral ou licenciamento baseadas exclusivamente nos resultados desta plataforma.
+          </p>
+        </div>
+
+        <label className="flex items-start gap-3 cursor-pointer group mb-6">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={e => setChecked(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-amber-500 flex-shrink-0 cursor-pointer"
+          />
+          <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+            Li e compreendi que os resultados são <strong className="text-amber-400">indicativos</strong> e não substituem estudos geológicos complementares ou laudos técnicos certificados.
+          </span>
+        </label>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-lg border border-slate-600 text-slate-400 text-sm font-medium hover:bg-slate-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!checked}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+              checked
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-900'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+            }`}
+          >
+            Confirmar e Executar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Analysis() {
   const [config, setConfig] = useState(loadConfig)
   const [loading, setLoading] = useState(false)
@@ -107,6 +179,7 @@ export default function Analysis() {
   const [mapMode, setMapMode] = useState('view')
   const [toast, setToast] = useState(null)
   const [bboxWarning, setBboxWarning] = useState(null)
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
   const navigate = useNavigate()
   const { token } = useAuth()
 
@@ -187,6 +260,12 @@ export default function Analysis() {
       setMapMode('add-target')
       return
     }
+    // Exibe modal de aviso metodológico antes de executar
+    setShowDisclaimer(true)
+  }
+
+  async function handleDisclaimerConfirm() {
+    setShowDisclaimer(false)
     setLoading(true)
     setNoCredits(false)
     try {
@@ -223,6 +302,14 @@ export default function Analysis() {
 
   return (
     <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
+      {/* Modal de aviso metodológico */}
+      {showDisclaimer && (
+        <DisclaimerModal
+          onConfirm={handleDisclaimerConfirm}
+          onCancel={() => setShowDisclaimer(false)}
+        />
+      )}
+
       {/* Sidebar de configuração */}
       <aside className="w-80 flex-shrink-0 bg-slate-800/70 border-r border-slate-700 overflow-y-auto">
         <TargetConfig
