@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import analysis, auth, geo, payments
+from app.api import admin, analysis, auth, geo, payments
 from app.database import engine
 from app.models.job import AnalysisJob  # noqa: F401 — ensure table created
 from app.models.payment import Payment, UserCredits  # noqa: F401 — ensure tables created
@@ -33,6 +33,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(geo.router, prefix="/api/geo", tags=["Geo"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
