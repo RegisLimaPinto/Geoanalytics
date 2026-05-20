@@ -47,7 +47,7 @@ DEMO_USERS = [
         "name": "Demo Mineradora",
         "email": "demo@psianalytics.com.br",
         "password": "PSI@Demo2025",
-        "plan": "professional",
+        "plan": "paid",
     },
 ]
 
