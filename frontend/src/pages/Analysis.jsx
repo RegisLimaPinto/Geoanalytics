@@ -260,6 +260,20 @@ export default function Analysis() {
       setMapMode('add-target')
       return
     }
+    // Verifica créditos antes de exibir o modal
+    try {
+      const credRes = await fetch('/api/payments/credits', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (credRes.ok) {
+        const cred = await credRes.json()
+        if (!cred.unlimited && (cred.balance ?? 0) < 1) {
+          navigate('/pricing')
+          return
+        }
+      }
+    } catch { /* ignora erro de rede — backend vai rejeitar com 402 se necessário */ }
+
     // Exibe modal de aviso metodológico antes de executar
     setShowDisclaimer(true)
   }
