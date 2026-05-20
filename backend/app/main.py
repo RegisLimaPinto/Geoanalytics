@@ -1,7 +1,25 @@
+import re
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+
+def _traduzir_msg(msg: str, tipo: str) -> str:
+    m = re.match(r"String should have at least (\d+) character", msg)
+    if m:
+        return f"Deve ter pelo menos {m.group(1)} caracteres"
+    m = re.match(r"String should have at most (\d+) character", msg)
+    if m:
+        return f"Deve ter no máximo {m.group(1)} caracteres"
+    if "valid email" in msg.lower() or "value_error.email" in tipo:
+        return "E-mail inválido"
+    if tipo == "missing" or "field required" in msg.lower():
+        return "Campo obrigatório"
+    if "value is not a valid" in msg.lower():
+        return "Valor inválido"
+    return msg
 
 from app.api import admin, analysis, auth, geo, payments
 from app.database import engine
@@ -46,10 +64,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # Sanitiza para JSON (remove objetos nao-serializaveis como ValueError em 'ctx')
     safe = []
     for e in errors:
+        tipo = str(e.get("type", ""))
+        msg = _traduzir_msg(str(e.get("msg", "")), tipo)
         safe.append({
             "loc": list(e.get("loc", [])),
-            "msg": str(e.get("msg", "")),
-            "type": str(e.get("type", "")),
+            "msg": msg,
+            "type": tipo,
         })
     return JSONResponse(status_code=422, content={"detail": safe})
 
