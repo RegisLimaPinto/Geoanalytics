@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from app.auth import hash_password
 from app.database import SessionLocal, engine
+from app.models.payment import UserCredits
 from app.models.user import Base, User
 
 # Lista de administradores a garantir no sistema
@@ -16,11 +17,6 @@ ADMINS = [
     {
         "name": "Regis Lima",
         "email": "regislimapinto@gmail.com",
-        "password": "admin@geo2024",
-    },
-    {
-        "name": "Gleudiano",
-        "email": "gleudianoprof@gmail.com",
         "password": "admin@geo2024",
     },
     {
@@ -32,6 +28,16 @@ ADMINS = [
         "name": "Pedro Ale",
         "email": "pedroale@pedroale.com",
         "password": "admin@geo2024",
+    },
+]
+
+# Usuários com limite fixo de créditos (role=user)
+LIMITED_USERS = [
+    {
+        "name": "Gleudiano",
+        "email": "gleudianoprof@gmail.com",
+        "password": "admin@geo2024",
+        "credits": 5,
     },
 ]
 
@@ -73,6 +79,39 @@ def create_admins():
             db.add(admin)
             db.commit()
             print(f"Administrador criado: {adm['email']}  |  senha: {adm['password']}")
+
+        for lu in LIMITED_USERS:
+            existing = db.query(User).filter(User.email == lu["email"]).first()
+            if existing:
+                # Garante role=user (rebaixa admin se necessário)
+                if existing.role == "admin":
+                    existing.role = "user"
+                    db.commit()
+                    print(f"Role rebaixado para user: {lu['email']}")
+            else:
+                existing = User(
+                    name=lu["name"],
+                    email=lu["email"],
+                    hashed_password=hash_password(lu["password"]),
+                    role="user",
+                    plan="free",
+                    is_active=True,
+                )
+                db.add(existing)
+                db.commit()
+                db.refresh(existing)
+                print(f"Usuário criado: {lu['email']}  |  senha: {lu['password']}")
+
+            # Define créditos (sobrescreve saldo atual)
+            uc = db.query(UserCredits).filter(UserCredits.user_id == existing.id).first()
+            if uc:
+                uc.balance = lu["credits"]
+                uc.updated_at = __import__("datetime").datetime.utcnow()
+            else:
+                uc = UserCredits(user_id=existing.id, balance=lu["credits"])
+                db.add(uc)
+            db.commit()
+            print(f"Créditos definidos: {lu['email']}  |  saldo={lu['credits']}")
 
         for demo in DEMO_USERS:
             existing = db.query(User).filter(User.email == demo["email"]).first()
