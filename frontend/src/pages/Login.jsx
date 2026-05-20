@@ -18,7 +18,14 @@ export default function Login() {
       const body = new URLSearchParams({ username: form.email, password: form.password })
       const res = await fetch('/api/auth/login', { method: 'POST', body })
       const data = await res.json()
-      if (!res.ok) { setError(data.detail || 'Erro ao entrar'); return }
+      if (!res.ok) {
+        const detail = data.detail
+        const msg = Array.isArray(detail)
+          ? detail.map(e => e.msg).join(', ')
+          : (typeof detail === 'string' ? detail : 'Erro ao entrar')
+        setError(msg)
+        return
+      }
       login(data.access_token, data.user)
       navigate('/')
     } catch {

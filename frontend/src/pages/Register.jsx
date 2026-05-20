@@ -23,7 +23,14 @@ export default function Register() {
         body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.detail || 'Erro ao cadastrar'); return }
+      if (!res.ok) {
+        const detail = data.detail
+        const msg = Array.isArray(detail)
+          ? detail.map(e => e.msg).join(', ')
+          : (typeof detail === 'string' ? detail : 'Erro ao cadastrar')
+        setError(msg)
+        return
+      }
       login(data.access_token, data.user)
       navigate('/')
     } catch {
