@@ -13,6 +13,18 @@ const DEFAULT_CONFIG = {
   targets: [],
 }
 
+function sanitizeConfig(rawConfig = {}) {
+  const radiusKm = Math.min(5, Math.max(1, Number(rawConfig.radiusKm ?? DEFAULT_CONFIG.radiusKm)))
+  const resolution = Math.min(0.05, Math.max(0.005, Number(rawConfig.resolution ?? DEFAULT_CONFIG.resolution)))
+  return {
+    ...DEFAULT_CONFIG,
+    ...rawConfig,
+    bbox: DEFAULT_CONFIG.bbox,
+    radiusKm,
+    resolution,
+  }
+}
+
 function loadConfig() {
   try {
     const saved = localStorage.getItem('geo_analysis_config')
@@ -22,14 +34,14 @@ function loadConfig() {
       if (parsed.targets && parsed.targets.length > 5) {
         parsed.targets = parsed.targets.slice(0, 5)
       }
-      return { ...DEFAULT_CONFIG, ...parsed, bbox: DEFAULT_CONFIG.bbox }
+      return sanitizeConfig(parsed)
     }
   } catch {}
   return DEFAULT_CONFIG
 }
 
 function serializeConfig(config) {
-  return JSON.stringify({ ...config, bbox: DEFAULT_CONFIG.bbox })
+  return JSON.stringify(sanitizeConfig(config))
 }
 
 const STEPS = [
@@ -291,7 +303,7 @@ export default function Analysis() {
       const res = await fetch('/api/analysis/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(config),
+        body: JSON.stringify(sanitizeConfig(config)),
       })
       if (res.status === 402) { setNoCredits(true); return }
       if (res.status === 422) {
