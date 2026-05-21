@@ -42,9 +42,23 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
   const modeRef = useRef(mode)
   const onBboxChangeRef = useRef(onBboxChange)
   const onTargetAddRef = useRef(onTargetAdd)
+  const dragStartRef = useRef(dragStart)
+  const dragCurrentRef = useRef(dragCurrent)
   modeRef.current = mode
   onBboxChangeRef.current = onBboxChange
   onTargetAddRef.current = onTargetAdd
+  dragStartRef.current = dragStart
+  dragCurrentRef.current = dragCurrent
+
+  function updateDragStart(value) {
+    dragStartRef.current = value
+    setDragStart(value)
+  }
+
+  function updateDragCurrent(value) {
+    dragCurrentRef.current = value
+    setDragCurrent(value)
+  }
 
   // Desabilita pan/zoom enquanto desenha bbox para o arrastar nao mover o mapa
   useEffect(() => {
@@ -56,32 +70,32 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
       map.dragging.enable()
       map.boxZoom.enable()
       map.doubleClickZoom.enable()
-      setDragStart(null)
-      setDragCurrent(null)
+      updateDragStart(null)
+      updateDragCurrent(null)
     }
   }, [mode, map])
 
   useMapEvents({
     mousedown(e) {
       if (modeRef.current !== 'draw-bbox') return
-      setDragStart(e.latlng)
-      setDragCurrent(e.latlng)
+      updateDragStart(e.latlng)
+      updateDragCurrent(e.latlng)
     },
     mousemove(e) {
-      if (modeRef.current === 'draw-bbox' && dragStart) {
-        setDragCurrent(e.latlng)
+      if (modeRef.current === 'draw-bbox' && dragStartRef.current) {
+        updateDragCurrent(e.latlng)
       }
     },
     mouseup(e) {
-      if (modeRef.current !== 'draw-bbox' || !dragStart) return
-      const a = dragStart
+      if (modeRef.current !== 'draw-bbox' || !dragStartRef.current) return
+      const a = dragStartRef.current
       const b = e.latlng
       const dLat = Math.abs(a.lat - b.lat)
       const dLng = Math.abs(a.lng - b.lng)
       // ignora cliques sem arrasto significativo (< ~0.01deg)
       if (dLat < 0.005 && dLng < 0.005) {
-        setDragStart(null)
-        setDragCurrent(null)
+        updateDragStart(null)
+        updateDragCurrent(null)
         return
       }
       const newBbox = {
@@ -94,8 +108,8 @@ function MapInteraction({ mode, onBboxChange, onTargetAdd }) {
       setConfirmed(newBbox)
       setTimeout(() => setConfirmed(null), 800)
       onBboxChangeRef.current(newBbox)
-      setDragStart(null)
-      setDragCurrent(null)
+      updateDragStart(null)
+      updateDragCurrent(null)
     },
     click(e) {
       const currentMode = modeRef.current
