@@ -154,25 +154,10 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
         </div>
       </div>
 
-      {/* Raio por alvo */}
-      <div>
-        <label className="block text-xs font-medium text-slate-400 mb-1.5">
-          Raio de análise por alvo —{' '}
-          <span className="text-amber-400 font-semibold">{config.radiusKm} km</span>
-        </label>
-        <input
-          type="range"
-          min="5"
-          max="50"
-          step="5"
-          value={config.radiusKm}
-          onChange={(e) => onChange({ ...config, radiusKm: parseInt(e.target.value) })}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-slate-600 mt-0.5">
-          <span>5 km</span>
-          <span>50 km</span>
-        </div>
+      {/* Raio por alvo — fixo em 5 km */}
+      <div className="flex items-center justify-between py-1">
+        <span className="text-xs font-medium text-slate-400">Raio de análise por alvo</span>
+        <span className="text-xs font-semibold text-amber-400">5 km</span>
       </div>
 
       {/* Targets list */}

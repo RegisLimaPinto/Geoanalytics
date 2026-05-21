@@ -36,7 +36,7 @@ class AnalysisConfig(BaseModel):
     bbox: BBox
     resolution: float = Field(default=0.02, ge=0.005, le=0.1)
     commodity: str = "OURO"
-    radiusKm: float = Field(default=5.0, ge=1, le=100)
+    radiusKm: float = Field(default=5.0, ge=1, le=5)
     targets: list[TargetIn] = Field(default=[], max_length=20)
 
     @field_validator("commodity")
