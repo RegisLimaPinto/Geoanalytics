@@ -19,9 +19,15 @@ function sanitizeConfig(rawConfig = {}) {
   return {
     ...DEFAULT_CONFIG,
     ...rawConfig,
-    bbox: DEFAULT_CONFIG.bbox,
     radiusKm,
     resolution,
+  }
+}
+
+function sanitizePersistedConfig(rawConfig = {}) {
+  return {
+    ...sanitizeConfig(rawConfig),
+    bbox: DEFAULT_CONFIG.bbox,
   }
 }
 
@@ -34,14 +40,14 @@ function loadConfig() {
       if (parsed.targets && parsed.targets.length > 5) {
         parsed.targets = parsed.targets.slice(0, 5)
       }
-      return sanitizeConfig(parsed)
+      return sanitizePersistedConfig(parsed)
     }
   } catch {}
   return DEFAULT_CONFIG
 }
 
 function serializeConfig(config) {
-  return JSON.stringify(sanitizeConfig(config))
+  return JSON.stringify(sanitizePersistedConfig(config))
 }
 
 const STEPS = [
