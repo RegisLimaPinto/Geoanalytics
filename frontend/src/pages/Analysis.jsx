@@ -6,7 +6,7 @@ import GeoMap from '../components/Map/GeoMap'
 import { useAuth } from '../context/AuthContext'
 
 const DEFAULT_CONFIG = {
-  bbox: { lonMin: -41.95, latMin: -4.75, lonMax: -40.30, latMax: -3.90 },
+  bbox: { lonMin: 0, latMin: 0, lonMax: 0, latMax: 0 },
   resolution: 0.02,
   commodity: 'OURO',
   radiusKm: 5,
@@ -22,10 +22,14 @@ function loadConfig() {
       if (parsed.targets && parsed.targets.length > 5) {
         parsed.targets = parsed.targets.slice(0, 5)
       }
-      return { ...DEFAULT_CONFIG, ...parsed }
+      return { ...DEFAULT_CONFIG, ...parsed, bbox: DEFAULT_CONFIG.bbox }
     }
   } catch {}
   return DEFAULT_CONFIG
+}
+
+function serializeConfig(config) {
+  return JSON.stringify({ ...config, bbox: DEFAULT_CONFIG.bbox })
 }
 
 const STEPS = [
@@ -182,6 +186,7 @@ export default function Analysis() {
   const [showDisclaimer, setShowDisclaimer] = useState(false)
   const navigate = useNavigate()
   const { token } = useAuth()
+  const bboxDefined = Math.abs(config.bbox.lonMax - config.bbox.lonMin) > 0.001 && Math.abs(config.bbox.latMax - config.bbox.latMin) > 0.001
 
   function showToast(msg, color = 'cyan') {
     setToast({ msg, color })
@@ -190,7 +195,7 @@ export default function Analysis() {
 
   // Persiste config no localStorage sempre que mudar (incluindo targets)
   useEffect(() => {
-    localStorage.setItem('geo_analysis_config', JSON.stringify(config))
+    localStorage.setItem('geo_analysis_config', serializeConfig(config))
   }, [config])
 
   function handleBboxChange(bbox) {
@@ -465,10 +470,14 @@ export default function Analysis() {
         <div className="absolute bottom-4 left-4 bg-slate-900/90 border border-slate-700 rounded-lg p-3 text-xs text-slate-400 backdrop-blur space-y-0.5">
           <div>
             <span className="text-slate-500">Área: </span>
-            <span className="text-white font-mono">
-              {config.bbox.lonMin.toFixed(2)}° – {config.bbox.lonMax.toFixed(2)}°W /{' '}
-              {config.bbox.latMin.toFixed(2)}° – {config.bbox.latMax.toFixed(2)}°S
-            </span>
+            {bboxDefined ? (
+              <span className="text-white font-mono">
+                {config.bbox.lonMin.toFixed(2)}° – {config.bbox.lonMax.toFixed(2)}°W /{' '}
+                {config.bbox.latMin.toFixed(2)}° – {config.bbox.latMax.toFixed(2)}°S
+              </span>
+            ) : (
+              <span className="text-slate-300">não definida</span>
+            )}
           </div>
           <div>
             <span className="text-slate-500">Resolução: </span>
