@@ -17,7 +17,7 @@ from typing import Optional
 
 import httpx
 import numpy as np
-from scipy.ndimage import gaussian_filter, zoom
+from scipy.ndimage import zoom
 from scipy.interpolate import RegularGridInterpolator
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,6 @@ def _safe_nodata_fill(arr: np.ndarray, nodata: Optional[float]) -> np.ndarray:
 def _fetch_cprm_layer(layer: str, bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
     """Tenta baixar uma camada do CPRM WCS como GeoTIFF."""
     try:
-        import rasterio
         from rasterio.io import MemoryFile
     except ImportError:
         return None
@@ -128,7 +127,7 @@ def _fetch_cprm_layer(layer: str, bbox: dict, nx: int, ny: int) -> Optional[np.n
         return _resample(arr, nx, ny)
     except httpx.TimeoutException:
         raise  # propaga para _try_cprm_key fazer early-exit
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-except
         logger.debug("CPRM WCS %s → %s", layer, exc)
         return None
 
@@ -199,7 +198,6 @@ def _fetch_icgem_gravity(bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
 
         lats_arr = np.array(lats_out)
         lons_arr = np.array(lons_out)
-        vals_arr = np.array(vals, dtype=np.float32)
 
         # Reconstruir grid regular
         unique_lats = np.sort(np.unique(lats_arr))
@@ -225,7 +223,7 @@ def _fetch_icgem_gravity(bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
         logger.info("ICGEM GRAV: %d pontos interpolados para (%d×%d)", len(vals), nx, ny)
         return result
 
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-except
         logger.warning("ICGEM gravity → %s", exc)
         return None
 
@@ -235,7 +233,7 @@ def _fetch_icgem_gravity(bbox: dict, nx: int, ny: int) -> Optional[np.ndarray]:
 def _synthetic_layers(
     nx: int,
     ny: int,
-    seed: int,
+    _seed: int,
     config: Optional[dict] = None,
 ) -> dict[str, np.ndarray]:
     """
@@ -303,7 +301,7 @@ def fetch_layers(
                         sources_used.append(source)
                 else:
                     layers[key] = synthetic[key]
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-except
                 key = futures[future]
                 logger.debug("fetch_layers %s → %s", key, exc)
                 layers[key] = synthetic[key]

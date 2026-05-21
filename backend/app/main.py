@@ -23,9 +23,9 @@ def _traduzir_msg(msg: str, tipo: str) -> str:
 
 from app.api import admin, analysis, auth, geo, payments
 from app.database import engine
-from app.models.job import AnalysisJob  # noqa: F401 — ensure table created
-from app.models.payment import Payment, UserCredits  # noqa: F401 — ensure tables created
-from app.models.subscription import Subscription  # noqa: F401
+from app.models.job import AnalysisJob  # noqa: F401 — ensure table created  # pylint: disable=unused-import
+from app.models.payment import Payment, UserCredits  # noqa: F401 — ensure tables created  # pylint: disable=unused-import
+from app.models.subscription import Subscription  # noqa: F401  # pylint: disable=unused-import
 from app.models.user import Base
 
 # Cria as tabelas automaticamente na inicialização

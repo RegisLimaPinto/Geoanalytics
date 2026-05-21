@@ -3,8 +3,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-import numpy as np
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -31,8 +30,8 @@ def _get_user_token_or_query(
         raise HTTPException(status_code=401, detail="Token invalido")
     try:
         user_id = int(payload.get("sub", 0))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Token invalido")
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail="Token invalido") from exc
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Usuario nao encontrado")
@@ -83,7 +82,7 @@ def _save_map(job_id: str, ext: str, data: bytes) -> None:
     try:
         with open(os.path.join(_MAPS_DIR, f"{job_id}.{ext}"), "wb") as f:
             f.write(data)
-    except Exception:
+    except OSError:
         pass  # fallback gracioso — ainda disponivel em memoria
 
 
@@ -159,7 +158,7 @@ async def upload_layer(
             data_bbox = detect_bbox_from_geotiff(content)
         elif ext == "csv":
             data_bbox = detect_bbox_from_csv(content)
-    except Exception:
+    except (ValueError, RuntimeError, OSError):
         data_bbox = None  # falha graciosamente; validação ocorre no /run
 
     try:
@@ -167,7 +166,7 @@ async def upload_layer(
             layer_key, file.filename or "upload", content, bbox, nx, ny
         )
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     uid = str(current_user.id)
     if uid not in _uploaded_layers:
@@ -217,7 +216,6 @@ async def upload_status(current_user: User = Depends(get_current_user)):
 @router.post("/run", response_model=dict)
 async def run_analysis(
     config: AnalysisConfig,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -306,13 +304,13 @@ async def run_analysis(
 
     # Guardar mapas PNG e HTML 3D
     map_png = result.pop("_map_png", b"")
-    map_3d = result.pop("_map_3d", b"")
-    if map_png or map_3d:
-        _job_maps[job_id] = {"png": map_png, "html": map_3d}
+    map_3d_bytes = result.pop("_map_3d", b"")
+    if map_png or map_3d_bytes:
+        _job_maps[job_id] = {"png": map_png, "html": map_3d_bytes}
         if map_png:
             _save_map(job_id, "png", map_png)
-        if map_3d:
-            _save_map(job_id, "html", map_3d)
+        if map_3d_bytes:
+            _save_map(job_id, "html", map_3d_bytes)
 
     _jobs[job_id] = result
 
@@ -325,7 +323,7 @@ async def run_analysis(
         )
         db.merge(db_job)
         db.commit()
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         pass  # fallback gracioso — ainda está em memória
 
     response: dict[str, Any] = {"job_id": job_id, "status": "completed"}
@@ -339,7 +337,7 @@ async def run_analysis(
 @router.get("/{job_id}/results", response_model=AnalysisResult)
 async def get_results(
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Retorna os resultados de uma análise pelo job_id."""
@@ -358,7 +356,7 @@ async def get_results(
 @router.get("/{job_id}/report")
 async def download_report(
     job_id: str,
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ):
     """Gera e retorna o PDF técnico do job (geração lazy — só quando solicitado)."""
     if job_id not in _jobs:
@@ -372,7 +370,6 @@ async def download_report(
         if not raw:
             raise HTTPException(status_code=404, detail="Dados para PDF não disponíveis")
         from app.services.output_pipeline import generate_pdf_report
-        job_data = _jobs[job_id]
         pdf_bytes = await asyncio.get_event_loop().run_in_executor(
             None,
             lambda: generate_pdf_report(
@@ -402,7 +399,7 @@ async def download_report(
 async def download_csv(
     job_id: str,
     dataset: str,
-    current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(get_current_user),
 ):
     """
     Baixa tabelas CSV do job.
@@ -440,7 +437,7 @@ async def download_csv(
 
 
 @router.get("/jobs", response_model=list[dict])
-async def list_jobs(current_user: User = Depends(get_current_user)):
+async def list_jobs(_current_user: User = Depends(get_current_user)):
     """Lista os jobs de análise disponíveis."""
     return [
         {"job_id": k, "commodity": v.get("commodity"), "createdAt": v.get("createdAt")}
