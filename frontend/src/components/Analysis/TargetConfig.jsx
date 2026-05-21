@@ -8,6 +8,11 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
 
   function addTarget() {
     if (config.targets.length >= 5) return
+    if (setMapMode) {
+      setMapMode('add-target')
+      return
+    }
+
     const newId = `T${config.targets.length + 1}`
     onChange({
       ...config,
@@ -172,7 +177,7 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
             className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <PlusIcon className="w-3.5 h-3.5" />
-            Adicionar
+            {mapMode === 'add-target' ? 'Clique no mapa' : 'Adicionar'}
           </button>
         </div>
 
