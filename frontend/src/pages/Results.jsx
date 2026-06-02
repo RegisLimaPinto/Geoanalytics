@@ -36,6 +36,7 @@ const DEMO = {
   ],
   topZones: 12,
   dataType: 'Sintetico (deterministico)',
+  layerSources: { MAG: 'sintetico', GRAV: 'sintetico', K: 'sintetico', U: 'sintetico', Th: 'sintetico', BOUGUER: 'sintetico' },
   zones: [
     { Target: 'Z1', Zone: 1, PriorityScore: 0.91, PeakScore: 0.95, MeanScore: 0.87, Area_km2: 42.3, CentroidLon: -40.57, CentroidLat: -4.65, DistanceToTarget_km: 0.5, Classe: 'Alta' },
     { Target: 'Z2', Zone: 1, PriorityScore: 0.73, PeakScore: 0.78, MeanScore: 0.68, Area_km2: 31.1, CentroidLon: -41.58, CentroidLat: -4.30, DistanceToTarget_km: 1.2, Classe: 'Media' },
@@ -161,6 +162,34 @@ export default function Results() {
         </div>
       )}
 
+      {/* Banner misto real + sintético */}
+      {!isDemo && !data._expired && data.layerSources && Object.values(data.layerSources).some(s => s === 'sintetico') && Object.values(data.layerSources).some(s => s !== 'sintetico') && (
+        <div className="bg-sky-500/10 border border-sky-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <span className="text-sky-400 text-base leading-none mt-0.5">&#8505;</span>
+          <div>
+            <p className="text-sky-300 text-sm font-medium">Analise mista: real + sintetico</p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              Algumas camadas foram obtidas de fontes reais (CPRM/ICGEM) e outras caíram para dados sintéticos por indisponibilidade das APIs.
+              Veja o painel <span className="text-sky-300 font-medium">Origem por camada</span> para detalhes.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner 100% sintético (analise real que caiu tudo no fallback) */}
+      {!isDemo && !data._expired && data.dataType?.includes('Sintetico') && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <span className="text-amber-400 text-base leading-none mt-0.5">&#9888;</span>
+          <div>
+            <p className="text-amber-300 text-sm font-medium">Dados sinteticos (fallback)</p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              As APIs CPRM e ICGEM nao responderam. Os resultados usam dados sintéticos determinísticos.
+              Considere reexecutar a análise ou fazer upload manual dos seus GeoTIFFs.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap">
@@ -216,7 +245,8 @@ export default function Results() {
         <KpiCard label="Melhor PSI Score" value={topTarget.psiScore > 0 ? `${(topTarget.psiScore * 100).toFixed(1)}%` : '-'} sub={`Alvo ${topTarget.id}`} icon={TrophyIcon} accent="amber" />
         <KpiCard label="Zonas Prioritarias" value={data.zones?.length ?? data.topZones ?? 0} sub="detectadas no grid" icon={MapPinIcon} accent="blue" />
         <KpiCard label="Subalvos" value={data.subtargets?.length ?? 0} sub="maximos locais" icon={CheckCircleIcon} accent="emerald" />
-        <KpiCard label="Fonte de Dados" value={data.dataType?.split(' ')[0] ?? '-'} sub={data.dataType} icon={null} accent="slate" />
+        <KpiCard label="Fonte de Dados" value={data.dataType?.split(' ')[0] ?? '-'} sub={data.dataType} icon={null}
+          accent={data.dataType?.includes('Sintetico') ? 'amber' : data.layerSources && Object.values(data.layerSources).some(s => s === 'sintetico') ? 'blue' : 'emerald'} />
       </div>
 
       {/* Tabs */}
@@ -298,6 +328,25 @@ export default function Results() {
               <h2 className="text-sm font-semibold text-white mb-1">Anomalias por Camada Geofisica</h2>
               <p className="text-xs text-slate-500 mb-4">Intensidade normalizada &mdash; area {topTarget.id}</p>
               <LayerRadar layers={data.layers} />
+              {data.layerSources && Object.keys(data.layerSources).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-slate-700/60">
+                  <p className="text-xs text-slate-500 mb-2 font-medium">Origem por camada</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(data.layerSources).filter(([k]) => k !== 'BOUGUER').map(([key, src]) => {
+                      const isReal = src !== 'sintetico'
+                      const badge = isReal
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      const label = src === 'sintetico' ? 'sint.' : src === 'upload' ? 'upload' : src
+                      return (
+                        <span key={key} className={`text-xs font-mono px-1.5 py-0.5 rounded border ${badge}`}>
+                          {key}: {label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-1">Composicao Radiometrica K-U-Th</h2>

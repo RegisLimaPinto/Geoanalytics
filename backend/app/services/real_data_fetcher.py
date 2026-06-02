@@ -260,9 +260,11 @@ def fetch_layers(
     nx: int,
     ny: int,
     config: Optional[dict] = None,
-) -> tuple[dict[str, np.ndarray], str]:
+) -> tuple[dict[str, np.ndarray], str, dict[str, str]]:
     """
-    Retorna (layers_dict, data_type_label).
+    Retorna (layers_dict, data_type_label, layer_sources).
+
+    layer_sources: mapeamento camada → origem, ex. {"MAG": "CPRM", "GRAV": "ICGEM/EGM2008", "K": "sintetico", ...}
 
     Busca CPRM (MAG/K/U/Th) e ICGEM (GRAV) em paralelo via ThreadPoolExecutor.
     Camadas que falharem são preenchidas com sintético controlado (demo).
@@ -274,9 +276,14 @@ def fetch_layers(
     cache_key = f"{seed}|{nx}|{ny}"
     if cache_key in _FETCH_CACHE:
         logger.info("fetch_layers: cache hit para bbox %s", cache_key)
-        return _FETCH_CACHE[cache_key]
+        cached = _FETCH_CACHE[cache_key]
+        # suporte a cache antigo sem layer_sources
+        if len(cached) == 2:
+            return cached[0], cached[1], {}
+        return cached
     synthetic = _synthetic_layers(nx, ny, seed, config)
     layers: dict[str, np.ndarray] = {}
+    layer_sources: dict[str, str] = {}
     sources_used: list[str] = []
 
     def _fetch_key(key: str) -> tuple[str, Optional[np.ndarray]]:
@@ -297,25 +304,29 @@ def fetch_layers(
                 if result is not None:
                     layers[key] = result
                     source = "CPRM" if key != "GRAV" else "ICGEM/EGM2008"
+                    layer_sources[key] = source
                     if source not in sources_used:
                         sources_used.append(source)
                 else:
                     layers[key] = synthetic[key]
+                    layer_sources[key] = "sintetico"
             except Exception as exc:  # pylint: disable=broad-except
                 key = futures[future]
                 logger.debug("fetch_layers %s → %s", key, exc)
                 layers[key] = synthetic[key]
+                layer_sources[key] = "sintetico"
 
     # Garante que todas as camadas estão presentes (incluindo BOUGUER do sintético)
     for key in ("MAG", "K", "U", "Th", "GRAV", "BOUGUER"):
         if key not in layers:
             layers[key] = synthetic.get(key, synthetic["GRAV"].copy())
+            layer_sources[key] = "sintetico"
 
     if sources_used:
         data_type = "Real (" + " + ".join(sources_used) + ")"
     else:
         data_type = "Sintetico (demo controlado)"
 
-    result = (layers, data_type)
+    result = (layers, data_type, layer_sources)
     _FETCH_CACHE[cache_key] = result
     return result

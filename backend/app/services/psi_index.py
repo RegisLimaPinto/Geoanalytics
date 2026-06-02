@@ -30,10 +30,19 @@ _PSI_CFG = {
 
 
 # ── Pesos por commodity + ajuste PSI (plugável) ─────────────────────────────
-# Commodities: ouro, cobre, ferro, prata
+# Metais base: ouro, cobre, ferro, prata
+# Terras raras / minerais críticos: terras_raras, ree, niobio, titanio, litio, fosfato
 # Chaves: MAG, GRAV, BOUGUER, K, U, Th, GRADIENT
+#
+# Mapeamento das chaves do plug-in externo:
+#   gravimetria  → GRAV
+#   magnetometria → MAG
+#   bouguer      → BOUGUER
+#   geoquimica   → Th (dominante) + U + K (radiometria como proxy geoquímico)
+#   estrutura    → GRADIENT
 
 COMMODITY_WEIGHTS: dict[str, dict[str, float]] = {
+    # ── Metais base ──────────────────────────────────────────────────────────
     "ouro": {
         "MAG":      0.15,
         "GRAV":     0.10,
@@ -70,6 +79,74 @@ COMMODITY_WEIGHTS: dict[str, dict[str, float]] = {
         "Th":       0.08,
         "GRADIENT": 0.28,
     },
+    # ── Terras raras (REE) ───────────────────────────────────────────────────
+    # Assinatura típica: Th e U elevados (carbonatitos/complexos alcalinos),
+    # anomalia gravimétrica positiva, controle estrutural circular.
+    # Mapeamento: geoquimica(0.35) → Th:0.20 + U:0.15; magnetometria(0.25) → MAG;
+    #             gravimetria(0.15) → GRAV; bouguer(0.10) → BOUGUER;
+    #             estrutura(0.15) → GRADIENT; K residual: 0.08 (alteração potássica)
+    "terras_raras": {
+        "MAG":      0.18,
+        "GRAV":     0.12,
+        "BOUGUER":  0.10,
+        "K":        0.08,
+        "U":        0.15,
+        "Th":       0.25,
+        "GRADIENT": 0.12,
+    },
+    "ree": {
+        "MAG":      0.18,
+        "GRAV":     0.12,
+        "BOUGUER":  0.10,
+        "K":        0.08,
+        "U":        0.15,
+        "Th":       0.25,
+        "GRADIENT": 0.12,
+    },
+    # ── Nióbio (Nb) ──────────────────────────────────────────────────────────
+    # Carbonatitos/complexos alcalinos; forte assinatura magnética e gravimétrica.
+    "niobio": {
+        "MAG":      0.22,
+        "GRAV":     0.15,
+        "BOUGUER":  0.12,
+        "K":        0.08,
+        "U":        0.12,
+        "Th":       0.20,
+        "GRADIENT": 0.11,
+    },
+    # ── Titânio (Ti) ─────────────────────────────────────────────────────────
+    # Ilmenita/rutilo em anortositos e placers; MAG dominante.
+    "titanio": {
+        "MAG":      0.35,
+        "GRAV":     0.18,
+        "BOUGUER":  0.15,
+        "K":        0.08,
+        "U":        0.06,
+        "Th":       0.06,
+        "GRADIENT": 0.12,
+    },
+    # ── Lítio (Li) ───────────────────────────────────────────────────────────
+    # Pegmatitos (K elevado por feldspato/espodumênio), controle estrutural forte.
+    "litio": {
+        "MAG":      0.08,
+        "GRAV":     0.10,
+        "BOUGUER":  0.10,
+        "K":        0.32,
+        "U":        0.08,
+        "Th":       0.07,
+        "GRADIENT": 0.25,
+    },
+    # ── Fosfato (P) ──────────────────────────────────────────────────────────
+    # Carbonatitos e depósitos sedimentares; U e Th elevados, anomalia gravitacional.
+    "fosfato": {
+        "MAG":      0.08,
+        "GRAV":     0.18,
+        "BOUGUER":  0.15,
+        "K":        0.10,
+        "U":        0.20,
+        "Th":       0.20,
+        "GRADIENT": 0.09,
+    },
 }
 
 # Alias GRADIENT → GRAD (nome interno da camada no pipeline)
@@ -86,6 +163,59 @@ def _normalize_layers(layers: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         norm = (norm - norm.min()) / (norm.max() - norm.min() + 1e-9)
         normalized[name] = norm
     return normalized
+
+
+# ── PSI-Q Filter v1.0 ────────────────────────────────────────────────────────
+# Supressão local de ruído por Z-score em janela deslizante 2D.
+# Aplicado após _normalize_layers e antes da suavização gaussiana.
+#
+#   Parâmetros:
+#     intensity (INTENSIDADE_PSIQ) — peso da componente filtrada no blend [0..1]
+#     window    (JANELA_PSIQ)      — tamanho da janela em pixels (ímpar recomendado)
+#
+# Adaptação do plug-in PSI-Q (originalmente em pandas) para arrays numpy 2D
+# usando scipy.ndimage.uniform_filter como equivalente do rolling().mean().
+
+_PSIQ_LAYERS = {"MAG", "GRAV", "K", "U", "Th"}
+_PSIQ_INTENSITY: float = 0.35
+_PSIQ_WINDOW:    int   = 7
+
+
+def apply_psiq_filter(
+    normalized: dict[str, np.ndarray],
+    intensity: float = _PSIQ_INTENSITY,
+    window: int = _PSIQ_WINDOW,
+) -> dict[str, np.ndarray]:
+    """PSI-Q Filter v1.0 — Z-score local por janela deslizante 2D.
+
+    Blenda o array normalizado com sua versão filtrada (Z-score local rescalado
+    para [0, 1]), reduzindo ruído de alta frequência sem apagar anomalias reais.
+    """
+    from scipy.ndimage import uniform_filter
+
+    filtered = {}
+    for key, arr in normalized.items():
+        if key not in _PSIQ_LAYERS:
+            filtered[key] = arr
+            continue
+
+        a = arr.astype(np.float32)
+
+        # Média local e desvio padrão local via E[X²] − E[X]²
+        media_local  = uniform_filter(a, size=window)
+        media_sq     = uniform_filter(a ** 2, size=window)
+        desvio_local = np.sqrt(np.clip(media_sq - media_local ** 2, 0, None))
+
+        # Z-score local → reescalado para [0, 1]
+        zscore = (a - media_local) / (desvio_local + 1e-9)
+        z_min, z_max = zscore.min(), zscore.max()
+        zscore_norm = (zscore - z_min) / (z_max - z_min + 1e-9)
+
+        # Blend: original * (1 − intensity) + filtrado * intensity
+        blended = a * (1.0 - intensity) + zscore_norm * intensity
+        filtered[key] = np.clip(blended, 0.0, 1.0).astype(np.float32)
+
+    return filtered
 
 
 def _compute_psi_index(
@@ -172,6 +302,14 @@ def normalize_commodity_name(commodity: str) -> str:
         "cobre": "cobre", "copper": "cobre", "cu": "cobre",
         "ferro": "ferro", "iron": "ferro", "fe": "ferro",
         "prata": "prata", "silver": "prata", "ag": "prata",
+        # Terras raras / REE
+        "terras_raras": "terras_raras", "terras raras": "terras_raras",
+        "ree": "ree", "rare earth": "ree", "rare_earth": "ree",
+        # Minerais críticos
+        "niobio": "niobio", "niobium": "niobio", "nb": "niobio",
+        "titanio": "titanio", "titanium": "titanio", "ti": "titanio",
+        "litio": "litio", "lithium": "litio", "li": "litio",
+        "fosfato": "fosfato", "phosphate": "fosfato", "p": "fosfato",
     }
     return _map.get(commodity.lower().strip(), "ouro")
 
@@ -199,10 +337,18 @@ def compute_weighted_baseline_score(
 
 
 _COMMODITY_ADJUST_PARAMS: dict[str, dict[str, float]] = {
+    # Metais base
     "ouro":  {"shielding": 0.30, "field": 0.30, "gradient": 0.40},
     "cobre": {"shielding": 0.35, "field": 0.35, "gradient": 0.30},
     "ferro": {"shielding": 0.50, "field": 0.35, "gradient": 0.15},
     "prata": {"shielding": 0.30, "field": 0.35, "gradient": 0.35},
+    # Terras raras / minerais críticos — campo latente dominante (corpos ígneos alcalinos)
+    "terras_raras": {"shielding": 0.35, "field": 0.42, "gradient": 0.23},
+    "ree":          {"shielding": 0.35, "field": 0.42, "gradient": 0.23},
+    "niobio":       {"shielding": 0.38, "field": 0.40, "gradient": 0.22},
+    "titanio":      {"shielding": 0.48, "field": 0.35, "gradient": 0.17},
+    "litio":        {"shielding": 0.25, "field": 0.33, "gradient": 0.42},
+    "fosfato":      {"shielding": 0.35, "field": 0.42, "gradient": 0.23},
 }
 
 
@@ -351,7 +497,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
     nx, ny = LON.shape
 
     # Fetch real data (fallback a demo sintético controlado quando indisponível)
-    layers, data_type = fetch_layers(
+    layers, data_type, layer_sources = fetch_layers(
         bbox, nx, ny,
         config={"bbox": bbox, "commodity": commodity, "targets": targets_input},
     )
@@ -365,6 +511,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
                 from scipy.ndimage import zoom as _zoom
                 arr = _zoom(arr, (nx / arr.shape[0], ny / arr.shape[1]), order=1)
             layers[key] = arr
+            layer_sources[key] = "upload"
         # Mark which layers came from upload
         uploaded_names = list(uploaded.keys())
         data_type = f"Upload do cliente ({', '.join(uploaded_names)})"
@@ -373,6 +520,10 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
 
     # Normalize
     normalized = _normalize_layers(layers)
+
+    # PSI-Q Filter v1.0 — supressão de ruído local por Z-score em janela 2D
+    # Aplicado sobre as camadas normalizadas, antes da suavização gaussiana.
+    normalized = apply_psiq_filter(normalized)
 
     # Suavização Gaussiana (sigma=1.5 pixels) — reduz ruído de alta frequência
     # Idêntico ao notebook: gaussian_filter(dados_norm[k], sigma=1.5)
@@ -490,6 +641,7 @@ def run_pipeline(config: dict[str, Any]) -> dict[str, Any]:
         "commodity": commodity_name,
         "weightsUsed": weights_used,
         "dataType": data_type,
+        "layerSources": layer_sources,
         "bbox": bbox,
         "targets": ranked_targets,
         "layers": layer_summary,

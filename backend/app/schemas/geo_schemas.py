@@ -2,7 +2,12 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-ALLOWED_COMMODITIES = {"OURO", "COBRE", "FERRO", "NIQUEL", "MANGANES", "ZINCO", "CHUMBO"}
+ALLOWED_COMMODITIES = {
+    # Metais base
+    "OURO", "COBRE", "FERRO", "NIQUEL", "MANGANES", "ZINCO", "CHUMBO", "PRATA",
+    # Terras raras / minerais críticos
+    "TERRAS_RARAS", "REE", "NIOBIO", "TITANIO", "LITIO", "FOSFATO",
+}
 
 
 class BBox(BaseModel):
@@ -74,6 +79,7 @@ class AnalysisResult(BaseModel):
     jobId: str
     commodity: str
     dataType: str
+    layerSources: dict = {}
     bbox: BBox
     targets: list[TargetResult]
     layers: list[LayerSummary]

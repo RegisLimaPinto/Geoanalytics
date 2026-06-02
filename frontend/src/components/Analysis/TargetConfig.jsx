@@ -84,10 +84,24 @@ export default function TargetConfig({ config, onChange, onRun, loading, token, 
           onChange={(e) => onChange({ ...config, commodity: e.target.value })}
           className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
         >
-          <option>OURO</option>
-          <option>COBRE</option>
-          <option>FERRO</option>
-          <option>PRATA</option>
+          <optgroup label="Metais Base">
+            <option>OURO</option>
+            <option>COBRE</option>
+            <option>FERRO</option>
+            <option>PRATA</option>
+            <option>NIQUEL</option>
+            <option>ZINCO</option>
+            <option>CHUMBO</option>
+            <option>MANGANES</option>
+          </optgroup>
+          <optgroup label="Terras Raras / Minerais Críticos">
+            <option value="TERRAS_RARAS">TERRAS RARAS (REE)</option>
+            <option value="REE">REE (alias)</option>
+            <option value="NIOBIO">NIÓBIO</option>
+            <option value="TITANIO">TITÂNIO</option>
+            <option value="LITIO">LÍTIO</option>
+            <option value="FOSFATO">FOSFATO</option>
+          </optgroup>
         </select>
       </div>
 
