@@ -28,6 +28,7 @@ function sanitizePersistedConfig(rawConfig = {}) {
   return {
     ...sanitizeConfig(rawConfig),
     bbox: DEFAULT_CONFIG.bbox,
+    targets: [],  // nunca restaura pontos da sessão anterior
   }
 }
 
@@ -329,6 +330,8 @@ export default function Analysis() {
         setConfig(c => ({ ...c, bbox: data.final_bbox }))
         setBboxWarning(data.bbox_warning || 'Área de análise ajustada automaticamente com base nos dados fornecidos.')
       }
+      // Limpa pontos após análise concluída (próxima análise começa sem targets)
+      setConfig(c => ({ ...c, targets: [] }))
       navigate(`/results?job_id=${data.job_id}`)
     } catch {
       navigate('/results?demo=true')
