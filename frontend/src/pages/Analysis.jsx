@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CursorArrowRaysIcon, MapPinIcon, Square2StackIcon } from '@heroicons/react/24/outline'
 import TargetConfig from '../components/Analysis/TargetConfig'
@@ -203,6 +203,7 @@ export default function Analysis() {
   const [toast, setToast] = useState(null)
   const [bboxWarning, setBboxWarning] = useState(null)
   const [showDisclaimer, setShowDisclaimer] = useState(false)
+  const pendingConfigRef = useRef(null)  // config resolvido (com bbox inferida) para o confirm usar
   const navigate = useNavigate()
   const { token } = useAuth()
   const bboxDefined = Math.abs(config.bbox.lonMax - config.bbox.lonMin) > 0.001 && Math.abs(config.bbox.latMax - config.bbox.latMin) > 0.001
@@ -271,14 +272,32 @@ export default function Analysis() {
 
   async function handleRunAnalysis() {
     // Valida bbox antes de enviar (evita 422 do backend)
-    const b = config.bbox
+    let resolvedConfig = { ...config }
+    const b = resolvedConfig.bbox
     const dLon = (b.lonMax ?? 0) - (b.lonMin ?? 0)
     const dLat = (b.latMax ?? 0) - (b.latMin ?? 0)
-    if (dLon <= 0 || dLat <= 0 || dLon < 0.01 || dLat < 0.01) {
+    const bboxMissing = dLon <= 0 || dLat <= 0 || dLon < 0.01 || dLat < 0.01
+
+    // Se bbox não definida mas há targets: infere bbox automaticamente com margem
+    if (bboxMissing && config.targets && config.targets.length > 0) {
+      const lons = config.targets.map(t => t.lon)
+      const lats = config.targets.map(t => t.lat)
+      const margin = Math.max(0.5, (config.radiusKm ?? 5) * 0.015)
+      const inferredBbox = {
+        lonMin: Math.min(...lons) - margin,
+        latMin: Math.min(...lats) - margin,
+        lonMax: Math.max(...lons) + margin,
+        latMax: Math.max(...lats) + margin,
+      }
+      resolvedConfig = { ...resolvedConfig, bbox: inferredBbox }
+      setConfig(c => ({ ...c, bbox: inferredBbox }))
+      showToast('Área inferida automaticamente a partir dos pontos', 'cyan')
+    } else if (bboxMissing) {
       showToast('Defina a area de interesse antes (clique "Desenhar Area" e arraste no mapa)', 'cyan')
       setMapMode('draw-bbox')
       return
     }
+
     if (!config.targets || config.targets.length === 0) {
       showToast('Adicione pelo menos 1 ponto alvo no mapa', 'amber')
       setMapMode('add-target')
@@ -298,6 +317,7 @@ export default function Analysis() {
       }
     } catch { /* ignora erro de rede — backend vai rejeitar com 402 se necessário */ }
 
+    pendingConfigRef.current = resolvedConfig
     // Exibe modal de aviso metodológico antes de executar
     setShowDisclaimer(true)
   }
@@ -306,11 +326,13 @@ export default function Analysis() {
     setShowDisclaimer(false)
     setLoading(true)
     setNoCredits(false)
+    const configToSend = pendingConfigRef.current ?? config
+    pendingConfigRef.current = null
     try {
       const res = await fetch('/api/analysis/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(sanitizeConfig(config)),
+        body: JSON.stringify(sanitizeConfig(configToSend)),
       })
       if (res.status === 402) { setNoCredits(true); return }
       if (res.status === 422) {
