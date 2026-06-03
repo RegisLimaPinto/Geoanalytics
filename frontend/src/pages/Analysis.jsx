@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CursorArrowRaysIcon, MapPinIcon, Square2StackIcon } from '@heroicons/react/24/outline'
+import { CursorArrowRaysIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import TargetConfig from '../components/Analysis/TargetConfig'
 import GeoMap from '../components/Map/GeoMap'
 import { useAuth } from '../context/AuthContext'
@@ -243,7 +243,7 @@ export default function Analysis() {
   // Click em modo view: dica de como ativar adicao de ponto
   function handleViewClick() {
     if (mapMode === 'view') {
-      showToast('Selecione "Adicionar Ponto" ou "Desenhar Area" no topo do mapa primeiro', 'amber')
+      showToast('Selecione "Adicionar Ponto" no topo do mapa primeiro', 'amber')
     }
   }
 
@@ -293,8 +293,7 @@ export default function Analysis() {
       setConfig(c => ({ ...c, bbox: inferredBbox }))
       showToast('Área inferida automaticamente a partir dos pontos', 'cyan')
     } else if (bboxMissing) {
-      showToast('Defina a area de interesse antes (clique "Desenhar Area" e arraste no mapa)', 'cyan')
-      setMapMode('draw-bbox')
+      showToast('Defina a área de interesse (preencha as coordenadas Lat/Lon nos campos abaixo)', 'cyan')
       return
     }
 
@@ -402,25 +401,13 @@ export default function Analysis() {
             <MapPinIcon className="w-5 h-5" />
             {mapMode === 'add-target' ? 'Cancelar (Esc)' : 'Adicionar Ponto'}
           </button>
-          <button
-            type="button"
-            onClick={() => setMapMode(mapMode === 'draw-bbox' ? 'view' : 'draw-bbox')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold shadow-xl border transition-all ${
-              mapMode === 'draw-bbox'
-                ? 'bg-cyan-500 text-slate-900 border-cyan-400 ring-4 ring-cyan-500/30'
-                : 'bg-slate-900/95 text-cyan-400 border-cyan-500/60 hover:bg-cyan-500/20 backdrop-blur'
-            }`}
-          >
-            <Square2StackIcon className="w-5 h-5" />
-            {mapMode === 'draw-bbox' ? 'Cancelar (Esc)' : 'Desenhar Area'}
-          </button>
+
         </div>
 
         {/* Toolbar antigo (centro - oculto em telas pequenas) */}
         <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 gap-1 bg-slate-900/95 border border-slate-700 rounded-lg p-1 backdrop-blur shadow-lg" style={{ zIndex: 1100 }}>
           {[
             { id: 'view', icon: CursorArrowRaysIcon, label: 'Mover' },
-            { id: 'draw-bbox', icon: Square2StackIcon, label: 'Desenhar Area' },
             { id: 'add-target', icon: MapPinIcon, label: 'Adicionar Ponto' },
           ].map(({ id, icon: Icon, label }) => {
             const isActive = mapMode === id
@@ -432,9 +419,7 @@ export default function Analysis() {
                 title={label}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   isActive
-                    ? id === 'draw-bbox'
-                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
-                      : id === 'add-target'
+                    ? id === 'add-target'
                       ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
                       : 'bg-slate-700 text-white border border-slate-600'
                     : isHighlight
@@ -475,11 +460,6 @@ export default function Analysis() {
         )}
 
         {/* Instrucao contextual */}
-        {mapMode === 'draw-bbox' && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-cyan-900/90 border border-cyan-500/40 text-cyan-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur" style={{ zIndex: 1100 }}>
-            Clique e arraste para desenhar a area
-          </div>
-        )}
         {mapMode === 'add-target' && (
           <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-900/90 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-lg backdrop-blur" style={{ zIndex: 1100 }}>
             Clique no mapa para adicionar pontos (Esc ou Mover para sair)
