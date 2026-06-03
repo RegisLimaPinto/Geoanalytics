@@ -80,6 +80,7 @@ export default function Results() {
   const [params] = useSearchParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [pdfError, setPdfError] = useState(null)
   const [activeTab, setActiveTab] = useState(0)
@@ -121,13 +122,45 @@ export default function Results() {
   useEffect(() => {
     const jobId = params.get('job_id')
     const isDemo = params.get('demo') === 'true' || !jobId
-    if (isDemo) { setTimeout(() => { setData(DEMO); setLoading(false) }, 400); return }
+    setLoadError(null)
+    setMapError(false)
+    setLoading(true)
+
+    if (isDemo) {
+      setTimeout(() => {
+        setData(DEMO)
+        setLoading(false)
+      }, 400)
+      return
+    }
+
+    if (!token) {
+      setLoadError('Sessao expirada. Entre novamente para carregar os resultados.')
+      setLoading(false)
+      return
+    }
+
     fetch(`/api/analysis/${jobId}/results`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
     })
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
+      .then(async (r) => {
+        if (!r.ok) {
+          const payload = await r.json().catch(() => null)
+          const detail = payload?.detail
+          const detailMsg = typeof detail === 'string'
+            ? detail
+            : (detail?.message || '')
+          throw new Error(detailMsg || `Erro ao buscar resultados (${r.status})`)
+        }
+        return r.json()
+      })
       .then(d => { setData(d); setLoading(false) })
-      .catch(() => { setData({ ...DEMO, jobId, _expired: true }); setLoading(false) })
+      .catch((e) => {
+        setData(null)
+        setLoadError(e?.message || 'Nao foi possivel carregar este job no momento.')
+        setLoading(false)
+      })
   }, [params, token])
 
   if (loading) {
@@ -136,6 +169,20 @@ export default function Results() {
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-2 border-slate-700 border-t-amber-400 rounded-full animate-spin mx-auto" />
           <p className="text-slate-400 text-sm">Carregando resultados...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-10">
+        <div className="bg-rose-950/50 border border-rose-500/40 rounded-xl p-5">
+          <p className="text-sm font-semibold text-rose-300">Nao foi possivel carregar os resultados</p>
+          <p className="text-xs text-slate-400 mt-1">{loadError || 'Erro inesperado ao buscar dados da analise.'}</p>
+          <Link to="/analysis" className="inline-block mt-4 text-amber-400 hover:text-amber-300 text-sm underline">
+            Voltar para Analise
+          </Link>
         </div>
       </div>
     )

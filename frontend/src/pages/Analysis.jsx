@@ -334,6 +334,15 @@ export default function Analysis() {
         body: JSON.stringify(sanitizeConfig(configToSend)),
       })
       if (res.status === 402) { setNoCredits(true); return }
+      if (res.status === 403) {
+        const err = await res.json().catch(() => null)
+        const detail = err?.detail
+        const msg = Array.isArray(detail?.erros)
+          ? detail.erros.join(' | ')
+          : (detail?.message || detail || 'Analise bloqueada pelos limites do plano atual')
+        showToast(msg, 'amber')
+        return
+      }
       if (res.status === 422) {
         const err = await res.json().catch(() => null)
         console.error('[Analysis] 422 validation', JSON.stringify(err, null, 2))
@@ -344,8 +353,20 @@ export default function Analysis() {
         showToast(msg, 'amber')
         return
       }
-      if (!res.ok) throw new Error('Backend error')
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        const detail = err?.detail
+        const msg = typeof detail === 'string'
+          ? detail
+          : (detail?.message || `Erro no backend (${res.status})`)
+        showToast(msg, 'amber')
+        return
+      }
       const data = await res.json()
+      if (!data?.job_id) {
+        showToast('Resposta invalida do backend: job_id ausente', 'amber')
+        return
+      }
       // Se o bbox foi ajustado, atualiza config local e mostra aviso persistente
       if (data.bbox_adjusted && data.final_bbox) {
         setConfig(c => ({ ...c, bbox: data.final_bbox }))
@@ -355,7 +376,7 @@ export default function Analysis() {
       setConfig(c => ({ ...c, targets: [] }))
       navigate(`/results?job_id=${data.job_id}`)
     } catch {
-      navigate('/results?demo=true')
+      showToast('Falha de rede ao iniciar análise. Tente novamente.', 'amber')
     } finally {
       setLoading(false)
     }
