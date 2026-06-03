@@ -621,17 +621,18 @@ def generate_favorability_png(
     )
 
     # Contornos: top 5% / 10% / 20%
+    import matplotlib.patches as mpatches
     contour_spec = [
         (95, "#ef4444", "Top 5%",  2.0),
         (90, "#f97316", "Top 10%", 1.5),
         (80, "#eab308", "Top 20%", 1.0),
     ]
+    contour_proxies = []
     for pct, color, lbl, lw in contour_spec:
         level = float(np.percentile(score_grid, pct))
-        cs = ax.contour(lons, lats, score_grid, levels=[level],
-                        colors=[color], linewidths=[lw], alpha=0.9)
-        if cs.collections:
-            cs.collections[0].set_label(lbl)
+        ax.contour(lons, lats, score_grid, levels=[level],
+                   colors=[color], linewidths=[lw], alpha=0.9)
+        contour_proxies.append(mpatches.Patch(color=color, label=lbl))
 
     # Centroides das zonas
     if not zones_df.empty:
@@ -672,7 +673,9 @@ def generate_favorability_png(
     cbar.set_label("Score PSI  0 → 1", color="#94a3b8", fontsize=9)
     cbar.ax.tick_params(colors="#64748b", labelsize=8)
 
+    handles, labels = ax.get_legend_handles_labels()
     legend = ax.legend(
+        handles=handles + contour_proxies,
         loc="lower right", facecolor="#1e293b",
         edgecolor="#334155", labelcolor="white", fontsize=8,
     )

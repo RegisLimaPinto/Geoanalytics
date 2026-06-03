@@ -273,7 +273,8 @@ def fetch_layers(
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     seed = _bbox_seed(bbox)
-    cache_key = f"{seed}|{nx}|{ny}"
+    commodity = (config or {}).get("commodity", "")
+    cache_key = f"{seed}|{nx}|{ny}|{commodity}"
     if cache_key in _FETCH_CACHE:
         logger.info("fetch_layers: cache hit para bbox %s", cache_key)
         cached = _FETCH_CACHE[cache_key]

@@ -287,8 +287,10 @@ async def run_analysis(
             bbox_warning = spatial["warning"]
             bbox_adjusted = True
 
-    # Inject uploaded layers into config
-    user_layers = _uploaded_layers.get(uid, {})
+    # Inject uploaded layers into config and immediately consume them
+    # (prevent stale layer data from a previous analysis being reused)
+    user_layers = _uploaded_layers.pop(uid, {})
+    _uploaded_bboxes.pop(uid, None)
     if user_layers:
         config_dict["uploaded_layers"] = {k: v.tolist() for k, v in user_layers.items()}
 
